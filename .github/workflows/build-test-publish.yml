@@ -1,0 +1,163 @@
+name: universal pipeline
+
+permissions:
+  actions: write
+  contents: read
+  packages: write
+
+on:
+  workflow_call:
+    secrets:
+      NPM_TOKEN:
+        required: true
+    inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
+      tool:
+        description: "build tool - gradlew,npm,yarn,mvn"
+        required: true
+        type: string
+      format:
+        description: "format script to use"
+        default: ""
+        required: false
+        type: string
+      lint:
+        description: "lint script to use"
+        default: ""
+        required: false
+        type: string
+      test:
+        description: "test script to use"
+        required: true
+        type: string
+      build_branch:
+        description: "build script to use in branch run"
+        required: true
+        type: string
+      build_main:
+        description: "build script to use in main run"
+        required: true
+        type: string
+      namespace:
+        description: "namespace"
+        required: false
+        type: string
+        default: "tehw0lf"
+      registry:
+        description: "registry"
+        required: false
+        type: string
+        default: "ghcr.io"
+      event_name:
+        description: "github event name"
+        required: true
+        type: string
+      docker_pre:
+        description: "run before building docker image"
+        default: ""
+        required: false
+        type: string
+      libraries:
+        description: "libraries to publish, separated by comma"
+        default: ""
+        required: false
+        type: string
+      library_path:
+        description: "path to libraries"
+        default: ""
+        required: false
+        type: string
+      platforms:
+        description: "platforms to build the docker image for, separated by comma"
+        default: "linux/amd64"
+        required: false
+        type: string
+
+jobs:
+  build_test_publish:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: configure jdk
+        if: ${{ inputs.tool == 'gradlew' || inputs.tool == 'mvn' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
+        with:
+          node-version: "20"
+          cache: "${{ inputs.tool }}"
+      - name: navigate to root dir
+        run: cd ${{ inputs.root_dir }}
+      - name: enable nx shas
+        if: ${{ success() && hashFiles('./nx.json') != '' }}
+        uses: nrwl/nx-set-shas@v4
+        with:
+          main-branch-name: main
+      - name: install with npm
+        if: ${{ inputs.tool == 'npm' }}
+        run: ${{ inputs.tool }} ci
+      - name: install with yarn
+        if: ${{ inputs.tool == 'yarn' }}
+        run: ${{ inputs.tool }} install --frozen-lockfile
+      - name: format
+        run: ${{ inputs.tool }} ${{ inputs.format }}
+        if: ${{ inputs.format != '' }}
+      - name: lint
+        run: ${{ inputs.tool }} ${{ inputs.lint }}
+        if: ${{ inputs.lint != '' }}
+      - name: test
+        run: ${{ inputs.tool }} ${{ inputs.test }}
+      - name: build on branch
+        if: ${{ github.event_name != 'push' }}
+        run: ${{ inputs.tool }} ${{ inputs.build_branch }}
+      - name: build on main
+        if: ${{ github.event_name == 'push' }}
+        run: ${{ inputs.tool }} ${{ inputs.build_main }}
+      - name: publish libraries
+        if: ${{ github.event_name == 'push' && inputs.libraries != ''  && inputs.library_path != '' }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+          libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
+          for library in $libraries
+          do
+            latest_version=$(npm view ${{ inputs.namespace }}/$library dist-tags.latest)
+            package_version=$(jq -r ".version" ${{ inputs.library_path }}/$library/package.json)
+            if [[ "$latest_version" != "$package_version" ]]; then
+              npm publish ${{ inputs.library_path }}/$library --access public --dry-run
+              npm publish ${{ inputs.library_path }}/$library --access public
+            fi
+          done
+          rm .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: run docker pre script
+        if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' }}
+        run: ${{ inputs.docker_pre }}
+      - name: set up docker
+        if: ${{ success() && hashFiles('./Dockerfile') != '' }}
+        uses: docker/setup-buildx-action@v3
+      - name: login
+        if: ${{ success() && hashFiles('./Dockerfile') != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build and push image
+        if: ${{ success() && hashFiles('./Dockerfile') != '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ inputs.platforms }}
+          tags: ${{ inputs.registry }}/${{ inputs.namespace }}/${{ inputs.image-name }}:latest
