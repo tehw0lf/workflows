@@ -46,7 +46,7 @@ on:
         description: "namespace"
         required: false
         type: string
-        default: "tehw0lf"
+        default: "@tehw0lf"
       image_name:
         description: "docker image name, will default to repository name if not set"
         required: false
