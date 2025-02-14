@@ -30,6 +30,11 @@ on:
         default: ""
         required: false
         type: string
+      install:
+        description: "install script to use"
+        default: ""
+        required: false
+        type: string
       test:
         description: "test script to use"
         required: true
@@ -108,6 +113,12 @@ jobs:
         uses: nrwl/nx-set-shas@v4
         with:
           main-branch-name: main
+      - name: install with gradlew
+        if: ${{ inputs.tool == 'gradlew' || inputs.tool == 'mvn'}}
+        run: ${{ inputs.tool }} ${{ inputs.install }}
+      - name: install with npm
+        if: ${{ inputs.tool == 'npm' }}
+        run: ${{ inputs.tool }} ci
       - name: install with npm
         if: ${{ inputs.tool == 'npm' }}
         run: ${{ inputs.tool }} ci
