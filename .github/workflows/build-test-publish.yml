@@ -158,7 +158,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Sort out the input param and set default if needed
+      - name: set docker image name
         id: set_docker_image_name
         run: |
           DOCKER_IMAGE_NAME="${{ inputs.image_name }}"
