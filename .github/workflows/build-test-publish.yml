@@ -47,6 +47,11 @@ on:
         required: false
         type: string
         default: "tehw0lf"
+      image_name:
+        description: "docker image name, will default to repository name if not set"
+        required: false
+        type: string
+        default: ""
       registry:
         description: "registry"
         required: false
@@ -153,6 +158,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sort out the input param and set default if needed
+        id: set_docker_image_name
+        run: |
+          DOCKER_IMAGE_NAME="${{ inputs.image_name }}"
+          echo "image_name=${DOCKER_IMAGE_NAME:-${{ github.event.repository.name }}}" >> $GITHUB_OUTPUT
       - name: build and push image
         if: ${{ success() && hashFiles('./Dockerfile') != ''  && github.event_name == 'push' }}
         uses: docker/build-push-action@v6
@@ -160,4 +170,4 @@ jobs:
           context: .
           push: true
           platforms: ${{ inputs.platforms }}
-          tags: ${{ inputs.registry }}/${{ inputs.namespace }}/${{ inputs.image-name }}:latest
+          tags: ${{ inputs.registry }}/${{ inputs.namespace }}/${{ steps.set_docker_image_name.outputs.image_name }}:latest
