@@ -192,7 +192,7 @@ jobs:
             ${{ inputs.library_path }}
       - name: Publish package distributions to PyPI
         if: ${{ github.event_name == 'push' && inputs.pypi == true }}
-        uses: pypa/gh-action-pypi-publish@release/v1.12.4
+        uses: pypa/gh-action-pypi-publish@release/v1
       - name: run docker pre script
         if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' && github.event_name == 'push' }}
         run: ${{ inputs.docker_pre }}
