@@ -3,6 +3,7 @@ name: universal pipeline
 permissions:
   actions: write
   contents: write
+  id-token: write
   packages: write
 
 on:
@@ -91,6 +92,11 @@ on:
         default: "linux/amd64"
         required: false
         type: string
+      pypi:
+        description: "publish package to pypi"
+        default: false
+        required: false
+        type: boolean
 
 jobs:
   build_test_publish:
@@ -184,6 +190,9 @@ jobs:
           title: "Release"
           files: |
             ${{ inputs.library_path }}
+      - name: Publish package distributions to PyPI
+        if: ${{ github.event_name == 'push' && inputs.pypi == true }}
+        uses: pypa/gh-action-pypi-publish@release/v1.12.4
       - name: run docker pre script
         if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' && github.event_name == 'push' }}
         run: ${{ inputs.docker_pre }}
