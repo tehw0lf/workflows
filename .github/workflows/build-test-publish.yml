@@ -214,7 +214,7 @@ jobs:
           DOCKER_IMAGE_NAME="${{ inputs.image_name }}"
           echo "image_name=${DOCKER_IMAGE_NAME:-${{ github.event.repository.name }}}" >> $GITHUB_OUTPUT
       - name: build and push image
-        if: ${{ success() && hashFiles('./Dockerfile') != ''  && github.event_name == 'push' }}
+        if: ${{ success() && hashFiles('./Dockerfile') != '' && github.event_name == 'push' }}
         uses: docker/build-push-action@v6
         with:
           context: .
