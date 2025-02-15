@@ -17,7 +17,7 @@ on:
         required: false
         type: string
       tool:
-        description: "build tool - gradlew,npm,yarn,mvn"
+        description: "build tool - ./gradlew || npm || yarn || mvn"
         required: true
         type: string
       format:
@@ -101,7 +101,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: configure jdk
-        if: ${{ inputs.tool == 'gradlew' || inputs.tool == 'mvn' }}
+        if: ${{ inputs.tool == './gradlew' || inputs.tool == 'mvn' }}
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
@@ -118,12 +118,6 @@ jobs:
         uses: nrwl/nx-set-shas@v4
         with:
           main-branch-name: main
-      - name: install with gradlew
-        if: ${{ inputs.tool == 'gradlew' || inputs.tool == 'mvn'}}
-        run: ${{ inputs.tool }} ${{ inputs.install }}
-      - name: install with npm
-        if: ${{ inputs.tool == 'npm' }}
-        run: ${{ inputs.tool }} ci
       - name: install with npm
         if: ${{ inputs.tool == 'npm' }}
         run: ${{ inputs.tool }} ci
