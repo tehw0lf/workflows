@@ -17,7 +17,7 @@ on:
         required: false
         type: string
       tool:
-        description: "build tool - ./gradlew || npm || yarn || mvn"
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv"
         required: true
         type: string
       format:
@@ -111,6 +111,15 @@ jobs:
         with:
           node-version: "20"
           cache: "${{ inputs.tool }}"
+      - uses: astral-sh/setup-uv@v4
+        if: ${{ inputs.tool == 'uv' }}
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - uses: actions/setup-python@v5
+        if: ${{ inputs.tool == 'uv' }}
+        with:
+          python-version-file: "pyproject.toml"
       - name: navigate to root dir
         run: cd ${{ inputs.root_dir }}
       - name: enable nx shas
@@ -120,10 +129,13 @@ jobs:
           main-branch-name: main
       - name: install with npm
         if: ${{ inputs.tool == 'npm' }}
-        run: ${{ inputs.tool }} ci
+        run: npm ci
       - name: install with yarn
         if: ${{ inputs.tool == 'yarn' }}
-        run: ${{ inputs.tool }} install --frozen-lockfile
+        run: yarn install --frozen-lockfile
+      - name: install with uv
+        if: ${{ inputs.tool == 'uv' }}
+        run: uv ${{ inputs.install }}
       - name: format
         run: ${{ inputs.tool }} ${{ inputs.format }}
         if: ${{ inputs.format != '' }}
@@ -138,8 +150,8 @@ jobs:
       - name: build on main
         if: ${{ github.event_name == 'push' }}
         run: ${{ inputs.tool }} ${{ inputs.build_main }}
-      - name: publish libraries
-        if: ${{ github.event_name == 'push' && inputs.libraries != ''  && inputs.library_path != '' }}
+      - name: publish npm libraries
+        if: ${{ github.event_name == 'push' && inputs.libraries != ''  && inputs.library_path != '' && inputs.tool == 'npm' }}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
@@ -155,6 +167,23 @@ jobs:
           rm .npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: ${{ github.event_name != 'push' && inputs.tool == 'uv' }}
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          title: "Release"
+          files: |
+            ${{ inputs.library_path }}
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: ${{ github.event_name == 'push' && inputs.tool == 'uv' }}
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: false
+          title: "Release"
+          files: |
+            ${{ inputs.library_path }}
       - name: run docker pre script
         if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' && github.event_name == 'push' }}
         run: ${{ inputs.docker_pre }}
