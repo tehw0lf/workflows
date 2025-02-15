@@ -2,7 +2,7 @@ name: universal pipeline
 
 permissions:
   actions: write
-  contents: read
+  contents: write
   packages: write
 
 on:
