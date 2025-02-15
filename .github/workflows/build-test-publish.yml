@@ -157,7 +157,7 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: ${{ inputs.tool }} ${{ inputs.build_main }}
       - name: publish npm libraries
-        if: ${{ github.event_name == 'push' && inputs.libraries != ''  && inputs.library_path != '' && inputs.tool == 'npm' }}
+        if: ${{ github.event_name == 'push' && inputs.libraries != ''  && inputs.library_path != '' && inputs.tool == 'npm' && success() && hashFiles(inputs.library_path) != ''}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
