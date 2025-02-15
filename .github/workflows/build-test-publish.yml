@@ -9,7 +9,7 @@ on:
   workflow_call:
     secrets:
       NPM_TOKEN:
-        required: true
+        required: false
     inputs:
       root_dir:
         description: "path to project root"
