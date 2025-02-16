@@ -216,6 +216,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: set docker image name
+        if: ${{ success() && hashFiles('./Dockerfile') != '' && github.event_name == 'push' && inputs.skip_docker == false }}
         id: set_docker_image_name
         run: |
           DOCKER_IMAGE_NAME="${{ inputs.image_name }}"
