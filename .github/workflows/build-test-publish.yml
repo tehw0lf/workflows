@@ -170,11 +170,11 @@ jobs:
           libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
           for library in $libraries
           do
-            latest_version=$(npm view ${{ inputs.npm_namespace }}/$library dist-tags.latest)
-            package_version=$(jq -r ".version" ${{ inputs.library_path }}/$library/package.json)
+            latest_version=$(npm view ${{ inputs.npm_namespace }}/"$library" dist-tags.latest)
+            package_version=$(jq -r ".version" ${{ inputs.library_path }}/"$library"/package.json)
             if [[ "$latest_version" != "$package_version" ]]; then
-              npm publish ${{ inputs.library_path }}/$library --access public --dry-run
-              npm publish ${{ inputs.library_path }}/$library --access public
+              npm publish ${{ inputs.library_path }}/"$library"/ --access public --dry-run
+              npm publish ${{ inputs.library_path }}/"$library"/ --access public
             fi
           done
           rm .npmrc
