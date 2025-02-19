@@ -193,10 +193,10 @@ jobs:
           files: |
             ${{ inputs.library_path }}
       - name: publish to pypi
-        if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && env.UV_TOKEN != '' }}
+        if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && env.UV_PUBLISH_TOKEN != '' }}
         run: uv publish
         env:
-          UV_TOKEN: ${{ secrets.UV_TOKEN }}
+          UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}
       - name: run docker pre script
         if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' && github.event_name == 'push' && inputs.skip_docker == false }}}
         run: ${{ inputs.docker_pre }}
