@@ -89,11 +89,6 @@ on:
         default: "linux/amd64"
         required: false
         type: string
-      pypi:
-        description: "publish package to pypi"
-        default: false
-        required: false
-        type: boolean
       skip_docker:
         description: "skip docker steps"
         default: false
@@ -164,7 +159,7 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: ${{ inputs.tool }} ${{ inputs.build_main }}
       - name: publish npm libraries
-        if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' && inputs.tool == 'npm' && success() && hashFiles(inputs.library_path) != ''}}
+        if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' && inputs.tool == 'npm' && success() && hashFiles(inputs.library_path) != '' && secrets.NPM_TOKEN != '' }}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
@@ -198,7 +193,7 @@ jobs:
           files: |
             ${{ inputs.library_path }}
       - name: publish to pypi
-        if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.pypi == true }}
+        if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && secrets.UV_TOKEN != '' }}
         run: uv publish
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}
