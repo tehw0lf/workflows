@@ -252,8 +252,8 @@ jobs:
           addon-guid: ${{ inputs.addon_guid }}"
           xpi-path: ${{ inputs.xpi_path }}"
           self-hosted: false
-          jwt-issuer: ${{ secrets.AMO_API_KEY }}
-          jwt-secret: ${{ secrets.AMO_API_SECRET }}
+          jwt-issuer: ${{ env.AMO_API_KEY }}
+          jwt-secret: ${{ env.AMO_API_SECRET }}
         env:
           AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
           AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
