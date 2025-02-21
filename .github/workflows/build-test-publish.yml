@@ -3,6 +3,10 @@ name: universal pipeline
 on:
   workflow_call:
     secrets:
+      AMO_API_KEY:
+        required: false
+      AMO_API_SECRET:
+        required: false
       NPM_TOKEN:
         required: false
       UV_TOKEN:
@@ -97,6 +101,16 @@ on:
         default: false
         required: false
         type: boolean
+      addon_guid:
+        description: "firefox addon guid"
+        default: ""
+        required: false
+        type: string
+      xpi_path:
+        description: "firefox addon zip path"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   build_test_publish:
@@ -227,3 +241,19 @@ jobs:
           push: true
           platforms: ${{ inputs.platforms }}
           tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ steps.set_docker_image_name.outputs.image_name }}:latest
+      - name: package firefox extension
+        if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' }
+        run: zip -r ${{ inputs.xpi_path }}" * -x .git\* -x .github\*
+        shell: bash
+      - name: publish firefox extension
+        if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' && inputs.addon_guid != "" && inputs.xpi_path != "" && env.jwt-issuer != "" && env.jwt-secret != "" }}
+        uses: wdzeng/firefox-addon@v1.0.5
+        with:
+          addon-guid: ${{ inputs.addon_guid }}"
+          xpi-path: ${{ inputs.xpi_path }}"
+          self-hosted: false
+          jwt-issuer: ${{ secrets.AMO_API_KEY }}
+          jwt-secret: ${{ secrets.AMO_API_SECRET }}
+        env:
+          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
