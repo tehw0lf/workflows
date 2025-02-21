@@ -52,6 +52,11 @@ on:
         default: ""
         required: false
         type: string
+      post_build_script:
+        description: "build script to use in main run"
+        default: ""
+        required: false
+        type: string
       docker_namespace:
         description: "docker namespace"
         required: false
@@ -175,6 +180,9 @@ jobs:
       - name: build on main
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
         run: ${{ inputs.tool }} ${{ inputs.build_main }}
+      - name: post build script on main
+        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
       - name: publish npm libraries
         if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' && inputs.tool == 'npm' && success() && hashFiles(inputs.library_path) != '' && env.NPM_TOKEN != '' }}
         run: |
