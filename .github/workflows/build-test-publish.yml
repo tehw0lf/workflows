@@ -246,14 +246,11 @@ jobs:
         run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
         shell: bash
       - name: publish firefox extension
-        if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' && env.AMO_API_KEY != '' && env.AMO_API_SECRET != '' }}
+        if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' }}
         uses: wdzeng/firefox-addon@v1.0.5
         with:
           addon-guid: ${{ inputs.addon_guid }}"
           xpi-path: ${{ inputs.xpi_path }}"
           self-hosted: false
-          jwt-issuer: ${{ env.AMO_API_KEY }}
-          jwt-secret: ${{ env.AMO_API_SECRET }}
-        env:
-          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
-          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+          jwt-issuer: ${{ secrets.AMO_API_KEY }}
+          jwt-secret: ${{ secrets.AMO_API_SECRET }}
