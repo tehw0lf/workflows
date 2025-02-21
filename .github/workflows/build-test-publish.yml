@@ -15,7 +15,8 @@ on:
         type: string
       tool:
         description: "build tool - ./gradlew || npm || yarn || mvn || uv"
-        required: true
+        default: "none"
+        required: false
         type: string
       format:
         description: "format script to use"
@@ -39,11 +40,13 @@ on:
         type: string
       build_branch:
         description: "build script to use in branch run"
-        required: true
+        default: ""
+        required: false
         type: string
       build_main:
         description: "build script to use in main run"
-        required: true
+        default: ""
+        required: false
         type: string
       docker_namespace:
         description: "docker namespace"
@@ -144,19 +147,19 @@ jobs:
         if: ${{ inputs.tool == 'uv' }}
         run: uv ${{ inputs.install }}
       - name: format
-        if: ${{ inputs.format != '' }}
+        if: ${{ inputs.tool != 'none' && inputs.format != '' }}
         run: ${{ inputs.tool }} ${{ inputs.format }}
       - name: lint
-        if: ${{ inputs.lint != '' }}
+        if: ${{ inputs.tool != 'none' && inputs.lint != '' }}
         run: ${{ inputs.tool }} ${{ inputs.lint }}
       - name: test
-        if: ${{ inputs.test != '' }}
+        if: ${{ inputs.tool != 'none' && inputs.test != '' }}
         run: ${{ inputs.tool }} ${{ inputs.test }}
       - name: build on branch
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}
         run: ${{ inputs.tool }} ${{ inputs.build_branch }}
       - name: build on main
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
         run: ${{ inputs.tool }} ${{ inputs.build_main }}
       - name: publish npm libraries
         if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' && inputs.tool == 'npm' && success() && hashFiles(inputs.library_path) != '' && env.NPM_TOKEN != '' }}
