@@ -242,7 +242,7 @@ jobs:
           platforms: ${{ inputs.platforms }}
           tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ steps.set_docker_image_name.outputs.image_name }}:latest
       - name: package firefox extension
-        if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' }
+        if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' }}
         run: zip -r ${{ inputs.xpi_path }}" * -x .git\* -x .github\*
         shell: bash
       - name: publish firefox extension
