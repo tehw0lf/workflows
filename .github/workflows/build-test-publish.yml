@@ -223,7 +223,7 @@ jobs:
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}
       - name: run docker pre script
-        if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' && github.event_name == 'push' && inputs.skip_docker == false }}}
+        if: ${{ success() && hashFiles('./Dockerfile') != '' && inputs.docker_pre != '' && github.event_name == 'push' && inputs.skip_docker == false }}
         run: ${{ inputs.docker_pre }}
       - name: set up docker
         if: ${{ success() && hashFiles('./Dockerfile') != '' && github.event_name == 'push' && inputs.skip_docker == false }}
