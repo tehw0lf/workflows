@@ -243,7 +243,7 @@ jobs:
           tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ steps.set_docker_image_name.outputs.image_name }}:latest
       - name: package firefox extension
         if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' }}
-        run: zip -r ${{ inputs.xpi_path }}" * -x .git\* -x .github\*
+        run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
         shell: bash
       - name: publish firefox extension
         if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' && env.jwt-issuer != '' && env.jwt-secret != '' }}
