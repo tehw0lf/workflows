@@ -249,7 +249,7 @@ jobs:
         if: ${{ success() && hashFiles('./manifest.json') != '' && github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' }}
         uses: wdzeng/firefox-addon@v1.0.5
         with:
-          addon-guid: ${{ inputs.addon_guid }}"
+          addon-guid: ${{ inputs.addon_guid }}
           xpi-path: ${{ inputs.xpi_path }}
           self-hosted: false
           jwt-issuer: ${{ secrets.AMO_API_KEY }}
