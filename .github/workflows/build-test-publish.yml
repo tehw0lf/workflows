@@ -327,23 +327,23 @@ jobs:
         if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
         run: cd ${{ inputs.app_root }}
       - name: install fastlane
-        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' && secrets.APPLE_DEVELOPER_TEAM_ID != '' }}
         run: gem install fastlane
       - name: authenticate apple id
-        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' && secrets.APPLE_DEVELOPER_TEAM_ID != '' }}
         run: |
           fastlane spaceauth -u "${{ secrets.APPLE_ID }}"
         env:
           FASTLANE_APPLE_ID: ${{ secrets.APPLE_ID }}
           FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
       - name: create free development profile
-        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' && secrets.APPLE_DEVELOPER_TEAM_ID != '' }}
         run: |
           fastlane sigh --development --force \
             --team_id "${{ secrets.APPLE_DEVELOPER_TEAM_ID }}" \
             --output_path provisioning_profiles/
       - name: build ipa
-        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' && secrets.APPLE_DEVELOPER_TEAM_ID != '' }}
         run: |
           cd ios/App
           fastlane gym --scheme App --clean \
@@ -352,7 +352,7 @@ jobs:
             --include_bitcode false \
             --include_symbols false
       - name: upload ipa
-        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' && secrets.APPLE_DEVELOPER_TEAM_ID != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
