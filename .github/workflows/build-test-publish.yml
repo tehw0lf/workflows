@@ -3,6 +3,16 @@ name: universal pipeline
 on:
   workflow_call:
     secrets:
+      ANDROID_KEYPASS:
+        required: false
+      ANDROID_STOREPASS:
+        required: false
+      APPLE_APP_PASSWORD:
+        required: false
+      APPLE_DEVELOPER_TEAM_ID:
+        required: false
+      APPLE_ID:
+        required: false
       AMO_API_KEY:
         required: false
       AMO_API_SECRET:
@@ -116,11 +126,16 @@ on:
         default: ""
         required: false
         type: string
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
 
 jobs:
   build_test_publish:
     name: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     permissions:
       actions: write
       contents: write
@@ -262,3 +277,83 @@ jobs:
           self-hosted: false
           jwt-issuer: ${{ secrets.AMO_API_KEY }}
           jwt-secret: ${{ secrets.AMO_API_SECRET }}
+      - name: go to app root
+        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
+        run: cd ${{ inputs.app_root }}
+      - name: generate keystore
+        if: ${{ github.event_name == 'push' && secrets.ANDROID_KEYPASS != '' && secrets.ANDROID_STOREPASS != '' }}
+        id: generate-keystore
+        run: |
+          if [ ! -f android/app/keystore.jks ]; then
+            keytool -genkeypair -v \
+              -keystore android/app/keystore.jks \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias my-key \
+              -storepass ${{ secrets.ANDROID_STOREPASS }} -keypass ${{ secrets.ANDROID_KEYPASS }} \
+              -dname "CN=Android, OU=Development, O=App"
+          fi
+      - name: cache keystore
+        if: ${{ github.event_name == 'push' && secrets.ANDROID_KEYPASS != '' && secrets.ANDROID_STOREPASS != '' }}
+        uses: actions/cache@v4
+        with:
+          path: android/app/keystore.jks
+          key: android-keystore-cache
+      - name: build apk
+        if: ${{ github.event_name == 'push' && secrets.ANDROID_KEYPASS != '' && secrets.ANDROID_STOREPASS != '' }}
+        run: |
+          cd android
+          ./gradlew assembleRelease
+      - name: sign apk
+        if: ${{ github.event_name == 'push' && secrets.ANDROID_KEYPASS != '' && secrets.ANDROID_STOREPASS != '' }}
+        run: |
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore android/app/keystore.jks \
+            -storepass ${{ secrets.ANDROID_STOREPASS }} \
+            -keypass ${{ secrets.ANDROID_KEYPASS }} \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk my-key
+      - name: align apk
+        if: ${{ github.event_name == 'push' && secrets.ANDROID_KEYPASS != '' && secrets.ANDROID_STOREPASS != '' }}
+        run: |
+          ${ANDROID_SDK_ROOT}/build-tools/33.0.0/zipalign -v 4 \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/apk/release/app-release.apk
+      - name: upload apk
+        if: ${{ github.event_name == 'push' && secrets.ANDROID_KEYPASS != '' && secrets.ANDROID_STOREPASS != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app
+          path: ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
+      - name: go to app root
+        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
+        run: cd ${{ inputs.app_root }}
+      - name: install fastlane
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        run: gem install fastlane
+      - name: authenticate apple id
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        run: |
+          fastlane spaceauth -u "${{ secrets.APPLE_ID }}"
+        env:
+          FASTLANE_APPLE_ID: ${{ secrets.APPLE_ID }}
+          FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      - name: create free development profile
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        run: |
+          fastlane sigh --development --force \
+            --team_id "${{ secrets.APPLE_DEVELOPER_TEAM_ID }}" \
+            --output_path provisioning_profiles/
+      - name: build ipa
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        run: |
+          cd ios/App
+          fastlane gym --scheme App --clean \
+            --export_method development \
+            --output_directory ../build \
+            --include_bitcode false \
+            --include_symbols false
+      - name: upload ipa
+        if: ${{ github.event_name == 'push' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: ${{ inputs.app_root }}/ios/build/App.ipa
