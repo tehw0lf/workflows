@@ -136,6 +136,11 @@ on:
         default: ""
         required: false
         type: string
+      NODE_OPTIONS:
+        description: "node options"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   build_test_publish:
@@ -145,6 +150,8 @@ jobs:
       actions: write
       contents: write
       packages: write
+    env:
+      NODE_OPTIONS: ${{ inputs.NODE_OPTIONS }}
     steps:
       - uses: actions/checkout@v4
         with:
