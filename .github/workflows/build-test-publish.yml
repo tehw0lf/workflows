@@ -131,6 +131,11 @@ on:
         default: "ubuntu-latest"
         required: false
         type: string
+      app_root:
+        description: "app root"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   build_test_publish:
