@@ -274,6 +274,14 @@ jobs:
           self-hosted: false
           jwt-issuer: ${{ secrets.AMO_API_KEY }}
           jwt-secret: ${{ secrets.AMO_API_SECRET }}
+      - name: cache keystore
+        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs.app_root }}/android/app/keystore.jks
+          key: android-keystore-cache
+        env:
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: generate keystore
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         id: generate-keystore
@@ -286,14 +294,6 @@ jobs:
               -storepass "$ANDROID_STOREPASS" \
               -dname "CN=Android, OU=Development, O=App"
           fi
-        env:
-          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
-      - name: cache keystore
-        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
-        uses: actions/cache@v4
-        with:
-          path: ${{ inputs.app_root }}/android/app/keystore.jks
-          key: android-keystore-cache
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: set up jdk
