@@ -277,23 +277,22 @@ jobs:
       - name: cache keystore
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         uses: actions/cache@v4
+        id: cache
         with:
           path: ${{ inputs.app_root }}/android/app/keystore.jks
           key: android-keystore-cache
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: generate keystore
-        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
+        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' && steps.cache.outputs.cache-hit != 'true' }}
         id: generate-keystore
         run: |
-          if [ ! -f ${{ inputs.app_root }}/android/app/keystore.jks ]; then
-            keytool -genkeypair -v \
-              -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -alias my-key \
-              -storepass "$ANDROID_STOREPASS" \
-              -dname "CN=Android, OU=Development, O=App
-          fi
+          keytool -genkeypair -v \
+            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias my-key \
+            -storepass "$ANDROID_STOREPASS" \
+            -dname "CN=Android, OU=Development, O=App
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: set up jdk
