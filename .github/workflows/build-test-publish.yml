@@ -306,8 +306,15 @@ jobs:
       - name: set up android sdk
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         uses: android-actions/setup-android@v3
+        with:
+          packages: "build-tools"
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+      - name: ls zipalign
+        run: |
+          ls ${ANDROID_SDK_ROOT}/build-tools/
+          ls ${ANDROID_SDK_ROOT}/build-tools/*/zipalign
+          ls ${ANDROID_SDK_ROOT}/build-tools/33.0.0/zipalign
       - name: build apk
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         run: |
