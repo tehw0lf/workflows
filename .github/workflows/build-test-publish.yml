@@ -307,14 +307,9 @@ jobs:
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         uses: android-actions/setup-android@v3
         with:
-          packages: "build-tools"
+          packages: "build-tools;34.0.0"
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
-      - name: ls zipalign
-        run: |
-          ls ${ANDROID_SDK_ROOT}/build-tools/
-          ls ${ANDROID_SDK_ROOT}/build-tools/*/zipalign
-          ls ${ANDROID_SDK_ROOT}/build-tools/33.0.0/zipalign
       - name: build apk
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         run: |
@@ -335,7 +330,7 @@ jobs:
       - name: align apk
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         run: |
-          ${ANDROID_SDK_ROOT}/build-tools/33.0.0/zipalign -v 4 \
+          ${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign -v 4 \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
         env:
