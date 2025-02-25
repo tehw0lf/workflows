@@ -292,7 +292,7 @@ jobs:
               -keyalg RSA -keysize 2048 -validity 10000 \
               -alias my-key \
               -storepass "$ANDROID_STOREPASS" \
-              -dname "CN=Android, OU=Development, O=App"
+              -dname "CN=Android, OU=Development, O=App
           fi
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
@@ -302,6 +302,11 @@ jobs:
         with:
           distribution: "adopt"
           java-version: "21"
+        env:
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+      - name: set up android sdk
+        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
+        uses: android-actions/setup-android@v3
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: build apk
