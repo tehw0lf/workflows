@@ -299,7 +299,7 @@ jobs:
       - name: build apk
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         run: |
-          cd android
+          cd ${{ inputs.app_root }}/android
           ./gradlew assembleRelease
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
