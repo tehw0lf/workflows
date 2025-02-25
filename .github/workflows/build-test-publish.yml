@@ -280,7 +280,7 @@ jobs:
         id: cache
         with:
           path: ${{ inputs.app_root }}/android/app/keystore.jks
-          key: android-keystore-cache
+          key: keystore-cache
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: generate keystore
