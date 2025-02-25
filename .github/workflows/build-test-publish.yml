@@ -274,18 +274,8 @@ jobs:
           self-hosted: false
           jwt-issuer: ${{ secrets.AMO_API_KEY }}
           jwt-secret: ${{ secrets.AMO_API_SECRET }}
-      - name: cache keystore
-        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
-        uses: actions/cache@v4
-        id: cache
-        with:
-          path: ${{ inputs.app_root }}/android/app/keystore.jks
-          key: keystore-cache
-        env:
-          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: generate keystore
-        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' && steps.cache.outputs.cache-hit != 'true' }}
-        id: generate-keystore
+        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         run: |
           keytool -genkeypair -v \
             -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
