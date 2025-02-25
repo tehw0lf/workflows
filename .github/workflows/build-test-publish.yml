@@ -282,7 +282,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -alias my-key \
             -storepass "$ANDROID_STOREPASS" \
-            -dname "CN=Android, OU=Development, O=App
+            -dname "CN=Android, OU=Development, O=App"
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: set up jdk
