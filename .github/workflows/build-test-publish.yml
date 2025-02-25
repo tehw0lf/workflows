@@ -317,7 +317,7 @@ jobs:
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
             -storepass "$ANDROID_STOREPASS" \
-            -keypass "$ANDROID_KEYPASS" \
+            -keypass "$ANDROID_STOREPASS" \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk my-key
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
