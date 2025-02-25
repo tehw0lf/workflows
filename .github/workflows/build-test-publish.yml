@@ -7,12 +7,6 @@ on:
         required: false
       ANDROID_STOREPASS:
         required: false
-      APPLE_APP_PASSWORD:
-        required: false
-      APPLE_DEVELOPER_TEAM_ID:
-        required: false
-      APPLE_ID:
-        required: false
       AMO_API_KEY:
         required: false
       AMO_API_SECRET:
@@ -313,11 +307,17 @@ jobs:
         with:
           path: android/app/keystore.jks
           key: android-keystore-cache
+        env:
+          ANDROID_KEYPASS: ${{ secrets.ANDROID_KEYPASS }}
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: build apk
         if: ${{ github.event_name == 'push' && env.ANDROID_KEYPASS != '' && env.ANDROID_STOREPASS != '' }}
         run: |
           cd android
           ./gradlew assembleRelease
+        env:
+          ANDROID_KEYPASS: ${{ secrets.ANDROID_KEYPASS }}
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: sign apk
         if: ${{ github.event_name == 'push' && env.ANDROID_KEYPASS != '' && env.ANDROID_STOREPASS != '' }}
         run: |
@@ -335,45 +335,15 @@ jobs:
           ${ANDROID_SDK_ROOT}/build-tools/33.0.0/zipalign -v 4 \
             android/app/build/outputs/apk/release/app-release-unsigned.apk \
             android/app/build/outputs/apk/release/app-release.apk
+        env:
+          ANDROID_KEYPASS: ${{ secrets.ANDROID_KEYPASS }}
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: upload apk
         if: ${{ github.event_name == 'push' && env.ANDROID_KEYPASS != '' && env.ANDROID_STOREPASS != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: android-app
           path: ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
-      - name: go to app root
-        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
-        run: cd ${{ inputs.app_root }}
-      - name: install fastlane
-        if: ${{ github.event_name == 'push' && env.APPLE_ID != '' && env.APPLE_APP_PASSWORD != '' && env.APPLE_DEVELOPER_TEAM_ID != '' }}
-        run: gem install fastlane
-      - name: authenticate apple id
-        if: ${{ github.event_name == 'push' && env.FASTLANE_APPLE_ID != '' && env.FASTLANE_PASSWORD != '' && env.APPLE_DEVELOPER_TEAM_ID != '' }}
-        run: |
-          fastlane spaceauth -u "$FASTLANE_APPLE_ID"
         env:
-          FASTLANE_APPLE_ID: ${{ secrets.APPLE_ID }}
-          FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-      - name: create free development profile
-        if: ${{ github.event_name == 'push' && env.APPLE_ID != '' && env.APPLE_APP_PASSWORD != '' && env.APPLE_DEVELOPER_TEAM_ID != '' }}
-        run: |
-          fastlane sigh --development --force \
-            --team_id "$APPLE_DEVELOPER_TEAM_ID" \
-            --output_path provisioning_profiles/
-        env:
-          APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
-      - name: build ipa
-        if: ${{ github.event_name == 'push' && env.APPLE_ID != '' && env.APPLE_APP_PASSWORD != '' && env.APPLE_DEVELOPER_TEAM_ID != '' }}
-        run: |
-          cd ios/App
-          fastlane gym --scheme App --clean \
-            --export_method development \
-            --output_directory ../build \
-            --include_bitcode false \
-            --include_symbols false
-      - name: upload ipa
-        if: ${{ github.event_name == 'push' && env.APPLE_ID != '' && env.APPLE_APP_PASSWORD != '' && env.APPLE_DEVELOPER_TEAM_ID != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-app
-          path: ${{ inputs.app_root }}/ios/build/App.ipa
+          ANDROID_KEYPASS: ${{ secrets.ANDROID_KEYPASS }}
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
