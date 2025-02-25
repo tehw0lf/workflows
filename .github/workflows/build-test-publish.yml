@@ -296,6 +296,14 @@ jobs:
           key: android-keystore-cache
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+      - name: set up jdk
+        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: "adopt"
+          java-version: "21"
+        env:
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: build apk
         if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
         run: |
