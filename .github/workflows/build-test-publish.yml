@@ -343,3 +343,14 @@ jobs:
           path: ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: ${{ github.event_name == 'push' && env.ANDROID_STOREPASS != '' }}
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: false
+          title: "Release"
+          files: |
+            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
+        env:
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
