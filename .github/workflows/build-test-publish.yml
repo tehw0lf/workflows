@@ -245,6 +245,7 @@ jobs:
       - name: build and push image
         uses: docker/build-push-action@v6
         with:
+          context: .
           file: ${{ matrix.docker.file }}
           push: true
           platforms: ${{ inputs.platforms }}
