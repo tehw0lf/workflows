@@ -180,6 +180,9 @@ jobs:
       - name: format
         if: ${{ inputs.tool != 'none' && inputs.format != '' }}
         run: ${{ inputs.tool }} ${{ inputs.format }}
+      - name: lint workspace (if nx)
+        if: ${{ inputs.tool != 'none' && success() && hashFiles('./nx.json') != '' }}
+        run: "npx nx lint --workspace"
       - name: lint
         if: ${{ inputs.tool != 'none' && inputs.lint != '' }}
         run: ${{ inputs.tool }} ${{ inputs.lint }}
