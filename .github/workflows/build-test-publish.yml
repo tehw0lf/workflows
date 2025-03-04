@@ -61,7 +61,7 @@ on:
         type: string
       artifact_path:
         description: "path to artifact files to save from build step"
-        default: "dist"
+        default: ""
         required: false
         type: string
       docker_meta:
