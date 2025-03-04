@@ -220,7 +220,8 @@ jobs:
       contents: write
       packages: write
     strategy:
-      matrix: ${{ fromJson(inputs.docker_meta) }}
+      matrix:
+        docker: ${{ fromJson(inputs.docker_meta) }}
     steps:
       - uses: actions/checkout@v4
       - name: create artifact path if it does not exist
@@ -243,18 +244,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: set docker image name
-        id: set_docker_image_name
-        run: |
-          DOCKER_IMAGE_NAME="${{ matrix.name }}"
-          echo "image_name=${DOCKER_IMAGE_NAME:-${{ github.event.repository.name }}}" >> $GITHUB_OUTPUT
+
       - name: build and push image
         uses: docker/build-push-action@v6
         with:
-          file: ${{ matrix.file }}
+          file: ${{ matrix.docker.file }}
           push: true
           platforms: ${{ inputs.platforms }}
-          tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ steps.set_docker_image_name.outputs.image_name }}:latest
+          tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ matrix.docker.name }}:latest
 
   publish_npm_libraries:
     name: publish npm libraries
