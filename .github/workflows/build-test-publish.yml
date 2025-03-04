@@ -206,6 +206,12 @@ jobs:
         with:
           name: build
           path: ${{ inputs.artifact_path }}/*
+      - name: upload app root
+        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app_root
+          path: ${{ inputs.app_root }}/*
 
   publish_docker_image:
     name: publish docker image
@@ -369,11 +375,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: download artifact
-        if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
         with:
-          name: build
-          path: ${{ inputs.artifact_path }}
+          name: app
+          path: ${{ inputs.app_root }}
       - name: cache keystore
         uses: actions/cache@v4
         id: cache
