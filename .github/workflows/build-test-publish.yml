@@ -326,6 +326,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
+          prerelease: false
           title: "Release"
           files: |
             ${{ inputs.library_path }}
@@ -467,6 +468,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
+          prerelease: false
           title: "Release"
           files: |
             ${{ inputs.artifact-path }}
