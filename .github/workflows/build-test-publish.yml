@@ -224,9 +224,6 @@ jobs:
         docker: ${{ fromJson(inputs.docker_meta) }}
     steps:
       - uses: actions/checkout@v4
-      - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact_path != '' }}
-        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
@@ -269,9 +266,6 @@ jobs:
         with:
           node-version: "20"
           cache: "${{ inputs.tool }}"
-      - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact_path != '' }}
-        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
@@ -316,9 +310,6 @@ jobs:
         if: ${{ inputs.tool == 'uv' }}
         with:
           python-version-file: "pyproject.toml"
-      - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact_path != '' }}
-        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
@@ -350,9 +341,6 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v4
-      - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact_path != '' }}
-        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
@@ -382,9 +370,6 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v4
-      - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact_path != '' }}
-        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
@@ -460,8 +445,6 @@ jobs:
       contents: write
       packages: read
     steps:
-      - name: create artifact path if it does not exist
-        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         uses: actions/download-artifact@v4
         with:
