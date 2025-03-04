@@ -206,12 +206,6 @@ jobs:
         with:
           name: build
           path: ${{ inputs.artifact_path }}/*
-      - name: upload app root
-        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: app_root
-          path: ${{ inputs.app_root }}/*
 
   publish_docker_image:
     name: publish docker image
@@ -365,7 +359,6 @@ jobs:
 
   release_android_apk:
     name: release android apk
-    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
     runs-on: ${{ inputs.runner }}
     permissions:
@@ -374,18 +367,20 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v4
-      - name: download artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
+        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
-          name: app_root
-          path: ${{ inputs.app_root }}
-      - uses: actions/checkout@v4
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
+          node-version: "20"
+          cache: "${{ inputs.tool }}"
+      - name: install with npm
+        if: ${{ inputs.tool == 'npm' }}
+        run: npm ci
+      - name: build on main
+        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.build_main }}
+      - name: post build script on main
+        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
       - name: cache keystore
         uses: actions/cache@v4
         id: cache
