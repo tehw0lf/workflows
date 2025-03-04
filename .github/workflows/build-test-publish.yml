@@ -59,13 +59,13 @@ on:
         default: ""
         required: false
         type: string
-      artifact-path:
+      artifact_path:
         description: "path to artifact files to save from build step"
         default: "dist"
         required: false
         type: string
-      docker-meta:
-        description: "docker metadata as json array ([{name:'docker-image-name',file:'docker/app/Dockerfile'}])"
+      docker_meta:
+        description: "docker metadata as json array ([{'name':'docker-image-name','file':'docker/app/Dockerfile'}])"
         default: ""
         required: false
         type: string
@@ -204,34 +204,34 @@ jobs:
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
         run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
       - name: upload artifact
-        if: ${{ github.event_name == 'push' && inputs.artifact-path != '' }}
+        if: ${{ github.event_name == 'push' && inputs.artifact_path != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}/*
+          path: ${{ inputs.artifact_path }}/*
 
   publish_docker_image:
     name: publish docker image
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.docker-meta != '' }}
+    if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}
     runs-on: ${{ inputs.runner }}
     permissions:
       actions: read
       contents: write
       packages: write
     strategy:
-      matrix: ${{ fromJson(inputs.docker-meta) }}
+      matrix: ${{ fromJson(inputs.docker_meta) }}
     steps:
       - uses: actions/checkout@v4
       - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact-path != '' }}
-        run: mkdir -p ${{ inputs.artifact-path }}
+        if: ${{ inputs.artifact_path != '' }}
+        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
-        if: ${{ inputs.artifact-path != '' }}
+        if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}
+          path: ${{ inputs.artifact_path }}
       - name: run docker pre script
         if: ${{ inputs.docker_pre != '' }}
         run: ${{ inputs.docker_pre }}
@@ -273,14 +273,14 @@ jobs:
           node-version: "20"
           cache: "${{ inputs.tool }}"
       - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact-path != '' }}
-        run: mkdir -p ${{ inputs.artifact-path }}
+        if: ${{ inputs.artifact_path != '' }}
+        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
-        if: ${{ inputs.artifact-path != '' }}
+        if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}
+          path: ${{ inputs.artifact_path }}
       - name: publish npm libraries
         if: ${{ env.NPM_TOKEN != '' }}
         run: |
@@ -320,14 +320,14 @@ jobs:
         with:
           python-version-file: "pyproject.toml"
       - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact-path != '' }}
-        run: mkdir -p ${{ inputs.artifact-path }}
+        if: ${{ inputs.artifact_path != '' }}
+        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
-        if: ${{ inputs.artifact-path != '' }}
+        if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}
+          path: ${{ inputs.artifact_path }}
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -354,14 +354,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact-path != '' }}
-        run: mkdir -p ${{ inputs.artifact-path }}
+        if: ${{ inputs.artifact_path != '' }}
+        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
-        if: ${{ inputs.artifact-path != '' }}
+        if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}
+          path: ${{ inputs.artifact_path }}
       - name: package firefox extension
         run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
         shell: bash
@@ -386,14 +386,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: create artifact path if it does not exist
-        if: ${{ inputs.artifact-path != '' }}
-        run: mkdir -p ${{ inputs.artifact-path }}
+        if: ${{ inputs.artifact_path != '' }}
+        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
-        if: ${{ inputs.artifact-path != '' }}
+        if: ${{ inputs.artifact_path != '' }}
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}
+          path: ${{ inputs.artifact_path }}
       - name: cache keystore
         uses: actions/cache@v4
         id: cache
@@ -456,7 +456,7 @@ jobs:
   release_github:
     name: release artifact on github
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.artifact-path != '' && inputs.publish_github_release == 'true' }}
+    if: ${{ github.event_name == 'push' && inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
     runs-on: ${{ inputs.runner }}
     permissions:
       actions: write
@@ -464,12 +464,12 @@ jobs:
       packages: read
     steps:
       - name: create artifact path if it does not exist
-        run: mkdir -p ${{ inputs.artifact-path }}
+        run: mkdir -p ${{ inputs.artifact_path }}
       - name: download artifact
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact-path }}
+          path: ${{ inputs.artifact_path }}
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -477,4 +477,4 @@ jobs:
           prerelease: false
           title: "Release"
           files: |
-            ${{ inputs.artifact-path }}
+            ${{ inputs.artifact_path }}
