@@ -129,8 +129,8 @@ on:
         required: false
         type: string
 jobs:
-  build:
-    name: build_and_test
+  test_and_build:
+    name: test and build
     runs-on: ${{ inputs.runner }}
     permissions:
       actions: write
@@ -206,6 +206,7 @@ jobs:
 
   publish_docker_image:
     name: docker
+    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.docker-meta != '' }}
     runs-on: ${{ inputs.runner }}
     permissions:
@@ -251,6 +252,7 @@ jobs:
 
   publish_npm_libraries:
     name: publish npm libraries
+    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' }}
     runs-on: ${{ inputs.runner }}
     permissions:
@@ -293,6 +295,7 @@ jobs:
 
   publish_python_libraries:
     name: publish python libraries
+    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.tool == 'uv'}}
     runs-on: ${{ inputs.runner }}
     permissions:
@@ -334,6 +337,7 @@ jobs:
 
   publish_firefox_extension:
     name: publish firefox extension
+    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != ''}}
     runs-on: ${{ inputs.runner }}
     permissions:
@@ -365,6 +369,7 @@ jobs:
 
   release_android_apk:
     name: release android apk
+    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
     runs-on: ${{ inputs.runner }}
     permissions:
@@ -442,7 +447,8 @@ jobs:
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
 
   release_github:
-    name: release android apk
+    name: release artifact on github
+    needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.artifact-path != '' }}
     runs-on: ${{ inputs.runner }}
     permissions:
