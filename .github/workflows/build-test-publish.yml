@@ -205,7 +205,7 @@ jobs:
           path: ${{ inputs.artifact-path }}/*
 
   publish_docker_image:
-    name: docker
+    name: publish docker image
     needs: test_and_build
     if: ${{ github.event_name == 'push' && inputs.docker-meta != '' }}
     runs-on: ${{ inputs.runner }}
