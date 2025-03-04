@@ -128,6 +128,12 @@ on:
         default: ""
         required: false
         type: string
+      publish_github_release:
+        description: "publish github release"
+        default: ""
+        required: false
+        type: string
+
 jobs:
   test_and_build:
     name: test and build
@@ -450,7 +456,7 @@ jobs:
   release_github:
     name: release artifact on github
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.artifact-path != '' }}
+    if: ${{ github.event_name == 'push' && inputs.artifact-path != '' && inputs.publish_github_release == 'true' }}
     runs-on: ${{ inputs.runner }}
     permissions:
       actions: write
