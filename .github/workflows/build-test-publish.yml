@@ -366,6 +366,7 @@ jobs:
   release_android_apk:
     name: release android apk
     if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
+    needs: test_and_build
     runs-on: ${{ inputs.runner }}
     permissions:
       actions: write
@@ -388,7 +389,7 @@ jobs:
           name: build
           path: ${{ inputs.artifact_path }}
       - name: download artifact
-        if: ${{ inputs.artifact_path != '' }}
+        if: ${{ inputs.app_root != '' }}
         uses: actions/download-artifact@v4
         with:
           name: app
