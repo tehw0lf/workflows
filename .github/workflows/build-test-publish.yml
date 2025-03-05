@@ -205,7 +205,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact_path }}/*
+          path: ${{ inputs.artifact_path }}
+      - name: upload artifact
+        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: ${{ inputs.app_root }}
 
   publish_docker_image:
     name: publish docker image
@@ -375,12 +381,18 @@ jobs:
       - name: install with npm
         if: ${{ inputs.tool == 'npm' }}
         run: npm ci
-      - name: build on main
-        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.build_main }}
-      - name: post build script on main
-        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: ${{ inputs.app_root }}
       - name: cache keystore
         uses: actions/cache@v4
         id: cache
