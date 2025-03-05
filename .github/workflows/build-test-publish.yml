@@ -1,4 +1,4 @@
-name: universal pipeline
+name: universal workflow
 
 on:
   workflow_call:
