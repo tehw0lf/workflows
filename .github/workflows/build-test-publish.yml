@@ -439,11 +439,6 @@ jobs:
           ${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign -v 4 \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
-      - name: upload apk
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-app
-          path: ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
