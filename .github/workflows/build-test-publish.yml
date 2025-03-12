@@ -425,6 +425,7 @@ jobs:
         run: |
           cd ${{ inputs.app_root }}/android
           ./gradlew assembleRelease
+          find ./build
       - name: sign apk
         run: |
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
