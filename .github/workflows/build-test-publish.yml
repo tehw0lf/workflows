@@ -426,6 +426,7 @@ jobs:
           cd ${{ inputs.app_root }}/android
           ./gradlew assembleRelease
       - name: sign apk
+        if: ${{ success() && hashFiles('./nx.json') != '' }}
         run: |
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
@@ -435,6 +436,7 @@ jobs:
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       - name: align apk
+        if: ${{ success() && hashFiles('./nx.json') != '' }}
         run: |
           ${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign -v 4 \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
