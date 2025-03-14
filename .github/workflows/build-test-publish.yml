@@ -13,6 +13,8 @@ on:
         required: false
       UV_TOKEN:
         required: false
+      REACT_APP_HOSTNAME:
+        required: false
     inputs:
       root_dir:
         description: "path to project root"
@@ -191,6 +193,11 @@ jobs:
       - name: test
         if: ${{ inputs.tool != 'none' && inputs.test != '' }}
         run: ${{ inputs.tool }} ${{ inputs.test }}
+      - name: set react native hostname if available
+        if: ${{ env.REACT_APP_HOSTNAME != '' }}
+        run: echo "REACT_APP_HOSTNAME=$REACT_APP_HOSTNAME" >> .env
+        env:
+          REACT_APP_HOSTNAME: ${{ secrets.REACT_APP_HOSTNAME }}
       - name: build on branch
         if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}
         run: ${{ inputs.tool }} ${{ inputs.build_branch }}
