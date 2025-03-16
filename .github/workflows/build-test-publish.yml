@@ -466,7 +466,7 @@ jobs:
       - name: set automatic release tag for python release
         if: ${{ inputs.tool == 'uv' }}
         run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
-      - name: set default or input release tag if none is set yet
+      - name: use input release tag if none is set yet
         if: ${{ env.RELEASE_TAG == '' }}
         run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
       - uses: "marvinpinto/action-automatic-releases@latest"
