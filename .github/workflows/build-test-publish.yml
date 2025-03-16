@@ -133,6 +133,11 @@ on:
         default: ""
         required: false
         type: string
+      release_tag:
+        description: "release tag"
+        default: "latest"
+        required: false
+        type: string
 
 jobs:
   test_and_build:
@@ -458,11 +463,17 @@ jobs:
         with:
           name: build
           path: ${{ inputs.artifact_path }}
+      - name: set automatic release tag for python release
+        if: ${{ inputs.tool == 'uv' }}
+        run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
+      - name: set default or input release tag if none is set yet
+        if: ${{ env.RELEASE_TAG == '' }}
+        run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          automatic_release_tag: ${{ env.RELEASE_TAG }}
           prerelease: false
-          title: "Release"
+          title: "Release ${{ env.RELEASE_TAG }}"
           files: |
             ${{ inputs.artifact_path }}
