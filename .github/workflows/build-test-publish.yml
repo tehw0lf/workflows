@@ -320,14 +320,6 @@ jobs:
         with:
           name: build
           path: ${{ inputs.artifact_path }}
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: false
-          title: "Release"
-          files: |
-            ${{ inputs.library_path }}
       - name: publish to pypi
         if: ${{ env.UV_PUBLISH_TOKEN != '' }}
         run: uv publish
