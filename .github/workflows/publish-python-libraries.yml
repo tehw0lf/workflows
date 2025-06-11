@@ -1,0 +1,64 @@
+name: publish python libraries
+
+on:
+  workflow_call:
+    secrets:
+      UV_TOKEN:
+        required: false
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      tool:
+        description: "build tool - uv"
+        default: "uv"
+        required: false
+        type: string
+
+jobs:
+  publish_python_libraries:
+    name: publish python libraries
+    runs-on: ${{ inputs.runner }}
+    if: ${{ inputs.tool == 'uv'}}
+    permissions:
+      actions: write
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_artifact_exists
+        with:
+          name: build
+
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - uses: astral-sh/setup-uv@v4
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - uses: actions/setup-python@v5
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: publish to pypi
+        if: ${{ env.UV_PUBLISH_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}

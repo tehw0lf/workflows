@@ -1,0 +1,147 @@
+name: release android apk
+
+on:
+  workflow_call:
+    secrets:
+      ANDROID_STOREPASS:
+        required: false
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      app_root:
+        description: "app root"
+        default: ""
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      tool:
+        description: "build tool - npm or yarn"
+        default: "none"
+        required: false
+        type: string
+      release_tag:
+        description: "release tag"
+        default: "latest"
+        required: false
+        type: string
+
+jobs:
+  release_android_apk:
+    name: release android apk
+    runs-on: ${{ inputs.runner }}
+    if: ${{ inputs.app_root != '' }}
+    permissions:
+      actions: write
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_app_artifact_exists
+        with:
+          name: app
+
+      - uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_build_artifact_exists
+        with:
+          name: build
+
+      - uses: actions/setup-node@v4
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        with:
+          node-version: "20"
+          cache: "${{ inputs.tool }}"
+
+      - name: install with npm
+        if: ${{ inputs.tool == 'npm' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        run: npm ci
+      - name: download artifact
+        if: ${{ inputs.app_root != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'  }}
+        uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: ${{ inputs.app_root }}
+
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - name: cache keystore
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ inputs.app_root }}/android/app/keystore.jks
+          key: keystore-cache
+
+      - name: generate keystore
+        if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
+        id: generate-keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias my-key \
+            -storepass "$ANDROID_STOREPASS" \
+            -dname "CN=Android, OU=Development, O=App"
+        env:
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+
+      - name: set up jdk
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: "adopt"
+          java-version: "21"
+
+      - name: set up android sdk
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "build-tools;34.0.0"
+
+      - name: build apk
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        run: |
+          cd ${{ inputs.app_root }}/android
+          ./gradlew assembleRelease
+          find ./build
+
+      - name: sign apk
+        if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
+        run: |
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
+            -storepass "$ANDROID_STOREPASS" \
+            -keypass "$ANDROID_STOREPASS" \
+            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk my-key
+        env:
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+
+      - name: align apk
+        if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
+        run: |
+          ${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign -v 4 \
+            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
+
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: ${{ inputs.release_tag }}
+          prerelease: false
+          title: "Release ${{ inputs.release_tag }}"
+          files: |
+            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk

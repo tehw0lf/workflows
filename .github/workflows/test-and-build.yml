@@ -1,0 +1,161 @@
+name: test and build
+
+on:
+  workflow_call:
+    inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
+      tool:
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv"
+        default: "none"
+        required: false
+        type: string
+      format:
+        description: "format script to use"
+        default: ""
+        required: false
+        type: string
+      lint:
+        description: "lint script to use"
+        default: ""
+        required: false
+        type: string
+      install:
+        description: "install script to use"
+        default: ""
+        required: false
+        type: string
+      test:
+        description: "test script to use"
+        default: ""
+        required: false
+        type: string
+      build_branch:
+        description: "build script to use in branch run"
+        default: ""
+        required: false
+        type: string
+      build_main:
+        description: "build script to use in main run"
+        default: ""
+        required: false
+        type: string
+      post_build_script:
+        description: "build script to use in main run"
+        default: ""
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      app_root:
+        description: "app root"
+        default: ""
+        required: false
+        type: string
+
+jobs:
+  test_and_build:
+    name: test and build
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      actions: write
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: configure jdk
+        if: ${{ inputs.tool == './gradlew' || inputs.tool == 'mvn' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - uses: actions/setup-node@v4
+        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
+        with:
+          node-version: "20"
+          cache: "${{ inputs.tool }}"
+
+      - uses: astral-sh/setup-uv@v4
+        if: ${{ inputs.tool == 'uv' }}
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - uses: actions/setup-python@v5
+        if: ${{ inputs.tool == 'uv' }}
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: navigate to root dir
+        run: cd ${{ inputs.root_dir }}
+
+      - name: enable nx shas
+        if: ${{ success() && hashFiles('./nx.json') != '' }}
+        uses: nrwl/nx-set-shas@v4
+        with:
+          main-branch-name: main
+
+      - name: install with npm
+        if: ${{ inputs.tool == 'npm' }}
+        run: npm ci
+
+      - name: install with yarn
+        if: ${{ inputs.tool == 'yarn' }}
+        run: yarn install --frozen-lockfile
+
+      - name: install with uv
+        if: ${{ inputs.tool == 'uv' }}
+        run: uv ${{ inputs.install }}
+
+      - name: format
+        if: ${{ inputs.tool != 'none' && inputs.format != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.format }}
+
+      - name: lint
+        if: ${{ inputs.tool != 'none' && inputs.lint != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.lint }}
+
+      - name: test
+        if: ${{ inputs.tool != 'none' && inputs.test != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.test }}
+
+      - name: build on branch
+        if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.build_branch }}
+
+      - name: build on main
+        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.build_main }}
+
+      - name: post build script on main
+        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
+
+      - name: upload artifact
+        if: ${{ github.event_name == 'push' && inputs.artifact_path != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - name: upload artifact
+        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: ${{ inputs.app_root }}

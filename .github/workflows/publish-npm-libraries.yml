@@ -1,0 +1,86 @@
+name: publish npm libraries
+
+on:
+  workflow_call:
+    secrets:
+      NPM_TOKEN:
+        required: false
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      tool:
+        description: "build tool - npm or yarn"
+        default: "none"
+        required: false
+        type: string
+      libraries:
+        description: "libraries to publish, separated by comma"
+        default: ""
+        required: false
+        type: string
+      library_path:
+        description: "path to libraries"
+        default: ""
+        required: false
+        type: string
+      npm_namespace:
+        description: "npm namespace"
+        required: false
+        type: string
+        default: "@tehw0lf"
+
+jobs:
+  publish_npm_libraries:
+    name: publish npm libraries
+    runs-on: ${{ inputs.runner }}
+    if: ${{ inputs.libraries != '' && inputs.library_path != '' }}
+    permissions:
+      actions: read
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_artifact_exists
+        with:
+          name: build
+
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - uses: actions/setup-node@v4
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_artifact_exists.outputs.exists == 'true' }}
+        with:
+          node-version: "20"
+          cache: "${{ inputs.tool }}"
+
+      - name: publish npm libraries
+        if: ${{ env.NPM_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+          libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
+          for library in $libraries
+          do
+            latest_version=$(npm view ${{ inputs.npm_namespace }}/"$library" dist-tags.latest)
+            package_version=$(jq -r ".version" ${{ inputs.library_path }}/"$library"/package.json)
+            if [[ "$latest_version" != "$package_version" ]]; then
+              npm publish ${{ inputs.library_path }}/"$library"/ --access public --dry-run
+              npm publish ${{ inputs.library_path }}/"$library"/ --access public
+            fi
+          done
+          rm .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

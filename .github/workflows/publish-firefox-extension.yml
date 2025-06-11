@@ -1,0 +1,69 @@
+name: publish firefox extension
+
+on:
+  workflow_call:
+    secrets:
+      AMO_API_KEY:
+        required: false
+      AMO_API_SECRET:
+        required: false
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      addon_guid:
+        description: "firefox addon guid"
+        default: ""
+        required: false
+        type: string
+      xpi_path:
+        description: "firefox addon zip path"
+        default: ""
+        required: false
+        type: string
+
+jobs:
+  publish_firefox_extension:
+    name: publish firefox extension
+    runs-on: ${{ inputs.runner }}
+    if: ${{ inputs.addon_guid != '' && inputs.xpi_path != ''}}
+    permissions:
+      actions: write
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_artifact_exists
+        with:
+          name: build
+
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - name: package firefox extension
+        if: ${{ inputs.xpi_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
+        shell: bash
+
+      - name: publish firefox extension
+        if: ${{ inputs.xpi_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: wdzeng/firefox-addon@v1.0.5
+        with:
+          addon-guid: ${{ inputs.addon_guid }}
+          xpi-path: ${{ inputs.xpi_path }}
+          self-hosted: false
+          jwt-issuer: ${{ secrets.AMO_API_KEY }}
+          jwt-secret: ${{ secrets.AMO_API_SECRET }}

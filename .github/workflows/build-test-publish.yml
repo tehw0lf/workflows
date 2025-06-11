@@ -141,431 +141,84 @@ on:
 
 jobs:
   test_and_build:
-    name: test and build
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: write
-      contents: read
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: configure jdk
-        if: ${{ inputs.tool == './gradlew' || inputs.tool == 'mvn' }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "21"
-
-      - uses: actions/setup-node@v4
-        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
-        with:
-          node-version: "20"
-          cache: "${{ inputs.tool }}"
-
-      - uses: astral-sh/setup-uv@v4
-        if: ${{ inputs.tool == 'uv' }}
-        with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-
-      - uses: actions/setup-python@v5
-        if: ${{ inputs.tool == 'uv' }}
-        with:
-          python-version-file: "pyproject.toml"
-
-      - name: navigate to root dir
-        run: cd ${{ inputs.root_dir }}
-
-      - name: enable nx shas
-        if: ${{ success() && hashFiles('./nx.json') != '' }}
-        uses: nrwl/nx-set-shas@v4
-        with:
-          main-branch-name: main
-
-      - name: install with npm
-        if: ${{ inputs.tool == 'npm' }}
-        run: npm ci
-
-      - name: install with yarn
-        if: ${{ inputs.tool == 'yarn' }}
-        run: yarn install --frozen-lockfile
-
-      - name: install with uv
-        if: ${{ inputs.tool == 'uv' }}
-        run: uv ${{ inputs.install }}
-
-      - name: format
-        if: ${{ inputs.tool != 'none' && inputs.format != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.format }}
-
-      - name: lint
-        if: ${{ inputs.tool != 'none' && inputs.lint != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.lint }}
-
-      - name: test
-        if: ${{ inputs.tool != 'none' && inputs.test != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.test }}
-
-      - name: build on branch
-        if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.build_branch }}
-
-      - name: build on main
-        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.build_main }}
-
-      - name: post build script on main
-        if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
-
-      - name: upload artifact
-        if: ${{ github.event_name == 'push' && inputs.artifact_path != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - name: upload artifact
-        if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: app
-          path: ${{ inputs.app_root }}
+    uses: tehw0lf/workflows/.github/workflows/test-and-build.yml@main
+    with:
+      root_dir: ${{ inputs.root_dir }}
+      tool: ${{ inputs.tool }}
+      format: ${{ inputs.format }}
+      lint: ${{ inputs.lint }}
+      install: ${{ inputs.install }}
+      test: ${{ inputs.test }}
+      build_branch: ${{ inputs.build_branch }}
+      build_main: ${{ inputs.build_main }}
+      post_build_script: ${{ inputs.post_build_script }}
+      artifact_path: ${{ inputs.artifact_path }}
+      runner: ${{ inputs.runner }}
+      app_root: ${{ inputs.app_root }}
+    secrets: inherit
 
   publish_docker_image:
-    name: publish docker image
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: read
-      contents: write
-      packages: write
-    strategy:
-      matrix:
-        docker: ${{ fromJson(inputs.docker_meta) }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - name: run docker pre script
-        if: ${{ inputs.docker_pre != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: ${{ inputs.docker_pre }}
-
-      - name: set up docker
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/setup-buildx-action@v3
-
-      - name: login
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: build and push image
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.docker.file }}
-          push: true
-          platforms: ${{ inputs.platforms }}
-          tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ matrix.docker.name }}:latest
+    uses: tehw0lf/workflows/.github/workflows/publish-docker-image.yml@main
+    with:
+      runner: ${{ inputs.runner }}
+      artifact_path: ${{ inputs.artifact_path }}
+      docker_meta: ${{ inputs.docker_meta }}
+      platforms: ${{ inputs.platforms }}
+      registry: ${{ inputs.registry }}
+      docker_namespace: ${{ inputs.docker_namespace }}
+      docker_pre: ${{ inputs.docker_pre }}
+    secrets: inherit
 
   publish_npm_libraries:
-    name: publish npm libraries
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' }}
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: read
-      contents: write
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - uses: actions/setup-node@v4
-        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        with:
-          node-version: "20"
-          cache: "${{ inputs.tool }}"
-
-      - name: publish npm libraries
-        if: ${{ env.NPM_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
-          libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
-          for library in $libraries
-          do
-            latest_version=$(npm view ${{ inputs.npm_namespace }}/"$library" dist-tags.latest)
-            package_version=$(jq -r ".version" ${{ inputs.library_path }}/"$library"/package.json)
-            if [[ "$latest_version" != "$package_version" ]]; then
-              npm publish ${{ inputs.library_path }}/"$library"/ --access public --dry-run
-              npm publish ${{ inputs.library_path }}/"$library"/ --access public
-            fi
-          done
-          rm .npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    uses: tehw0lf/workflows/.github/workflows/publish-npm-libraries.yml@main
+    with:
+      runner: ${{ inputs.runner }}
+      artifact_path: ${{ inputs.artifact_path }}
+      tool: ${{ inputs.tool }}
+      libraries: ${{ inputs.libraries }}
+      library_path: ${{ inputs.library_path }}
+      npm_namespace: ${{ inputs.npm_namespace }}
+    secrets: inherit
 
   publish_python_libraries:
-    name: publish python libraries
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.tool == 'uv'}}
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: write
-      contents: write
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - uses: astral-sh/setup-uv@v4
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
-        with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-
-      - uses: actions/setup-python@v5
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
-        with:
-          python-version-file: "pyproject.toml"
-
-      - name: publish to pypi
-        if: ${{ env.UV_PUBLISH_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
-        run: uv publish
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}
+    uses: tehw0lf/workflows/.github/workflows/publish-python-libraries.yml@main
+    with:
+      runner: ${{ inputs.runner }}
+      artifact_path: ${{ inputs.artifact_path }}
+      tool: ${{ inputs.tool }}
+    secrets: inherit
 
   publish_firefox_extension:
-    name: publish firefox extension
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != ''}}
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: write
-      contents: write
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - name: package firefox extension
-        if: ${{ inputs.xpi_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
-        shell: bash
-
-      - name: publish firefox extension
-        if: ${{ inputs.xpi_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: wdzeng/firefox-addon@v1.0.5
-        with:
-          addon-guid: ${{ inputs.addon_guid }}
-          xpi-path: ${{ inputs.xpi_path }}
-          self-hosted: false
-          jwt-issuer: ${{ secrets.AMO_API_KEY }}
-          jwt-secret: ${{ secrets.AMO_API_SECRET }}
+    uses: tehw0lf/workflows/.github/workflows/publish-firefox-extension.yml@main
+    with:
+      runner: ${{ inputs.runner }}
+      artifact_path: ${{ inputs.artifact_path }}
+      addon_guid: ${{ inputs.addon_guid }}
+      xpi_path: ${{ inputs.xpi_path }}
+    secrets: inherit
 
   release_android_apk:
-    name: release android apk
-    if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
     needs: test_and_build
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: write
-      contents: write
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_app_artifact_exists
-        with:
-          name: app
-
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_build_artifact_exists
-        with:
-          name: build
-
-      - uses: actions/setup-node@v4
-        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        with:
-          node-version: "20"
-          cache: "${{ inputs.tool }}"
-
-      - name: install with npm
-        if: ${{ inputs.tool == 'npm' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        run: npm ci
-      - name: download artifact
-        if: ${{ inputs.app_root != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'  }}
-        uses: actions/download-artifact@v4
-        with:
-          name: app
-          path: ${{ inputs.app_root }}
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - name: cache keystore
-        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/cache@v4
-        id: cache
-        with:
-          path: ${{ inputs.app_root }}/android/app/keystore.jks
-          key: keystore-cache
-
-      - name: generate keystore
-        if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
-        id: generate-keystore
-        run: |
-          keytool -genkeypair -v \
-            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias my-key \
-            -storepass "$ANDROID_STOREPASS" \
-            -dname "CN=Android, OU=Development, O=App"
-        env:
-          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
-
-      - name: set up jdk
-        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: "adopt"
-          java-version: "21"
-
-      - name: set up android sdk
-        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: android-actions/setup-android@v3
-        with:
-          packages: "build-tools;34.0.0"
-
-      - name: build apk
-        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        run: |
-          cd ${{ inputs.app_root }}/android
-          ./gradlew assembleRelease
-          find ./build
-
-      - name: sign apk
-        if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
-        run: |
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
-            -storepass "$ANDROID_STOREPASS" \
-            -keypass "$ANDROID_STOREPASS" \
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk my-key
-        env:
-          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
-
-      - name: align apk
-        if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
-        run: |
-          ${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign -v 4 \
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
-
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ inputs.release_tag }}
-          prerelease: false
-          title: "Release ${{ inputs.release_tag }}"
-          files: |
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
+    uses: tehw0lf/workflows/.github/workflows/release-android-apk.yml@main
+    with:
+      runner: ${{ inputs.runner }}
+      app_root: ${{ inputs.app_root }}
+      artifact_path: ${{ inputs.artifact_path }}
+      tool: ${{ inputs.tool }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets: inherit
 
   release_github:
-    name: release artifact on github
     needs: test_and_build
-    if: ${{ github.event_name == 'push' && inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
-    runs-on: ${{ inputs.runner }}
-    permissions:
-      actions: write
-      contents: write
-      packages: read
-    steps:
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
-      - name: set automatic release tag for python release
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
-
-      - name: use input release tag if none is set yet
-        if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
-
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ env.RELEASE_TAG }}
-          prerelease: false
-          title: "Release ${{ env.RELEASE_TAG }}"
-          files: |
-            ${{ inputs.artifact_path }}
+    uses: tehw0lf/workflows/.github/workflows/release-github.yml@main
+    with:
+      runner: ${{ inputs.runner }}
+      artifact_path: ${{ inputs.artifact_path }}
+      tool: ${{ inputs.tool }}
+      publish_github_release: ${{ inputs.publish_github_release }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets: inherit

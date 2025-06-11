@@ -1,0 +1,70 @@
+name: release artifact on github
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      tool:
+        description: "build tool - uv, npm, etc."
+        default: "none"
+        required: false
+        type: string
+      publish_github_release:
+        description: "publish github release"
+        default: ""
+        required: false
+        type: string
+      release_tag:
+        description: "release tag"
+        default: "latest"
+        required: false
+        type: string
+
+jobs:
+  release_github:
+    name: release artifact on github
+    runs-on: ${{ inputs.runner }}
+    if: ${{ inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
+    permissions:
+      actions: write
+      contents: write
+      packages: read
+    steps:
+      - uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_artifact_exists
+        with:
+          name: build
+
+      - name: download artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - name: set automatic release tag for python release
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
+
+      - name: use input release tag if none is set yet
+        if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
+
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: ${{ env.RELEASE_TAG }}
+          prerelease: false
+          title: "Release ${{ env.RELEASE_TAG }}"
+          files: |
+            ${{ inputs.artifact_path }}
