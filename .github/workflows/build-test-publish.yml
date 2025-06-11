@@ -141,7 +141,7 @@ on:
 
 jobs:
   test_and_build:
-    uses: tehw0lf/workflows/.github/workflows/test-and-build.yml@main
+    uses: ./.github/workflows/test-and-build.yml
     with:
       root_dir: ${{ inputs.root_dir }}
       tool: ${{ inputs.tool }}
@@ -159,7 +159,7 @@ jobs:
 
   publish_docker_image:
     needs: test_and_build
-    uses: tehw0lf/workflows/.github/workflows/publish-docker-image.yml@main
+    uses: ./.github/workflows/publish-docker-image.yml
     with:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
@@ -172,7 +172,7 @@ jobs:
 
   publish_npm_libraries:
     needs: test_and_build
-    uses: tehw0lf/workflows/.github/workflows/publish-npm-libraries.yml@main
+    uses: ./.github/workflows/publish-npm-libraries.yml
     with:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
@@ -184,7 +184,7 @@ jobs:
 
   publish_python_libraries:
     needs: test_and_build
-    uses: tehw0lf/workflows/.github/workflows/publish-python-libraries.yml@main
+    uses: ./.github/workflows/publish-python-libraries.yml
     with:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
@@ -193,7 +193,7 @@ jobs:
 
   publish_firefox_extension:
     needs: test_and_build
-    uses: tehw0lf/workflows/.github/workflows/publish-firefox-extension.yml@main
+    uses: ./.github/workflows/publish-firefox-extension.yml
     with:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
@@ -203,7 +203,7 @@ jobs:
 
   release_android_apk:
     needs: test_and_build
-    uses: tehw0lf/workflows/.github/workflows/release-android-apk.yml@main
+    uses: ./.github/workflows/release-android-apk.yml
     with:
       runner: ${{ inputs.runner }}
       app_root: ${{ inputs.app_root }}
@@ -214,7 +214,7 @@ jobs:
 
   release_github:
     needs: test_and_build
-    uses: tehw0lf/workflows/.github/workflows/release-github.yml@main
+    uses: ./.github/workflows/release-github.yml
     with:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
