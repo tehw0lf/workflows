@@ -116,7 +116,6 @@ jobs:
         run: |
           cd ${{ inputs.app_root }}/android
           ./gradlew assembleRelease
-          find ./build
 
       - name: sign apk
         if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
