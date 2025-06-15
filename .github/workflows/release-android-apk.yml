@@ -109,7 +109,7 @@ jobs:
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         uses: android-actions/setup-android@v3
         with:
-          packages: "build-tools;34.0.0"
+          packages: "build-tools;35.0.0"
 
       - name: build apk
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
