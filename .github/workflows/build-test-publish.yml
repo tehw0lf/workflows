@@ -158,6 +158,7 @@ jobs:
     secrets: inherit
 
   publish_docker_image:
+    if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}
     needs: test_and_build
     uses: ./.github/workflows/publish-docker-image.yml
     with:
@@ -171,6 +172,7 @@ jobs:
     secrets: inherit
 
   publish_npm_libraries:
+    if: ${{ github.event_name == 'push' && inputs.libraries != '' }}
     needs: test_and_build
     uses: ./.github/workflows/publish-npm-libraries.yml
     with:
@@ -183,6 +185,7 @@ jobs:
     secrets: inherit
 
   publish_python_libraries:
+    if: ${{ github.event_name == 'push' }}
     needs: test_and_build
     uses: ./.github/workflows/publish-python-libraries.yml
     with:
@@ -192,6 +195,7 @@ jobs:
     secrets: inherit
 
   publish_firefox_extension:
+    if: ${{ github.event_name == 'push' }}
     needs: test_and_build
     uses: ./.github/workflows/publish-firefox-extension.yml
     with:
@@ -202,6 +206,7 @@ jobs:
     secrets: inherit
 
   release_android_apk:
+    if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
     needs: test_and_build
     uses: ./.github/workflows/release-android-apk.yml
     with:
@@ -213,6 +218,7 @@ jobs:
     secrets: inherit
 
   release_github:
+    if: ${{ github.event_name == 'push' }}
     needs: test_and_build
     uses: ./.github/workflows/release-github.yml
     with:
