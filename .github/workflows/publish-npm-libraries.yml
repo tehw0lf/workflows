@@ -41,7 +41,6 @@ jobs:
   publish_npm_libraries:
     name: publish npm libraries
     runs-on: ${{ inputs.runner }}
-    if: ${{ inputs.libraries != '' && inputs.library_path != '' }}
     permissions:
       actions: read
       contents: write

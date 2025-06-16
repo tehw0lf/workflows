@@ -26,7 +26,6 @@ jobs:
   publish_python_libraries:
     name: publish python libraries
     runs-on: ${{ inputs.runner }}
-    if: ${{ inputs.tool == 'uv'}}
     permissions:
       actions: write
       contents: write

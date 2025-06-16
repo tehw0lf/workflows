@@ -36,7 +36,6 @@ jobs:
   release_android_apk:
     name: release android apk
     runs-on: ${{ inputs.runner }}
-    if: ${{ inputs.app_root != '' }}
     permissions:
       actions: write
       contents: write

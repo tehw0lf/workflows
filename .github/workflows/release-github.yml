@@ -33,7 +33,6 @@ jobs:
   release_github:
     name: release artifact on github
     runs-on: ${{ inputs.runner }}
-    if: ${{ inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
     permissions:
       actions: write
       contents: write

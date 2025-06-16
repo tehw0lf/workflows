@@ -43,7 +43,6 @@ jobs:
   publish_docker_image:
     name: publish docker image
     runs-on: ${{ inputs.runner }}
-    if: ${{ inputs.docker_meta != '' }}
     permissions:
       actions: read
       contents: write

@@ -33,7 +33,6 @@ jobs:
   publish_firefox_extension:
     name: publish firefox extension
     runs-on: ${{ inputs.runner }}
-    if: ${{ inputs.addon_guid != '' && inputs.xpi_path != ''}}
     permissions:
       actions: write
       contents: write
@@ -54,12 +53,12 @@ jobs:
           path: ${{ inputs.artifact_path }}
 
       - name: package firefox extension
-        if: ${{ inputs.xpi_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
         shell: bash
 
       - name: publish firefox extension
-        if: ${{ inputs.xpi_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         uses: wdzeng/firefox-addon@v1.0.5
         with:
           addon-guid: ${{ inputs.addon_guid }}
