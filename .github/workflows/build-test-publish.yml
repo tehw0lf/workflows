@@ -11,6 +11,8 @@ on:
         required: false
       NPM_TOKEN:
         required: false
+      NX_CLOUD_ACCESS_TOKEN:
+        required: false
       UV_TOKEN:
         required: false
     inputs:
