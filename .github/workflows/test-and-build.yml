@@ -33,6 +33,11 @@ on:
         default: ""
         required: false
         type: string
+      e2e:
+        description: "e2e test script to use"
+        default: ""
+        required: false
+        type: string
       build_branch:
         description: "build script to use in branch run"
         default: ""
@@ -133,6 +138,14 @@ jobs:
       - name: test
         if: ${{ inputs.tool != 'none' && inputs.test != '' }}
         run: ${{ inputs.tool }} ${{ inputs.test }}
+
+      - name: Install Playwright dependencies
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') &&  hashFiles('**/**/playwright.config.ts') != ''}}
+        run: npx playwright install-deps
+
+      - name: e2e test
+        if: ${{ inputs.tool != 'none' && inputs.e2e != '' }}
+        run: ${{ inputs.tool }} ${{ inputs.e2e }}
 
       - name: build on branch
         if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}

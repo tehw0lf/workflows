@@ -46,6 +46,11 @@ on:
         default: ""
         required: false
         type: string
+      e2e:
+        description: "e2e test script to use"
+        default: ""
+        required: false
+        type: string
       build_branch:
         description: "build script to use in branch run"
         default: ""
