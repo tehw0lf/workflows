@@ -36,6 +36,7 @@ jobs:
   release_android_apk:
     name: release android apk
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 45
     permissions:
       actions: write
       contents: write
@@ -130,7 +131,7 @@ jobs:
       - name: align apk
         if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
         run: |
-          ${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign -v 4 \
+          ${ANDROID_SDK_ROOT}/build-tools/35.0.0/zipalign -v 4 \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
 

@@ -41,6 +41,7 @@ jobs:
   publish_npm_libraries:
     name: publish npm libraries
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: write
@@ -70,16 +71,34 @@ jobs:
         if: ${{ env.NPM_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
-          libraries=$(echo ${{ inputs.libraries }} | tr "," "\n")
+
+          # Validate inputs to prevent injection
+          if [[ ! "$LIBRARIES" =~ ^[a-zA-Z0-9_,-]+$ ]]; then
+            echo "Error: Invalid characters in libraries input"
+            exit 1
+          fi
+
+          libraries=$(echo "$LIBRARIES" | tr "," "\n")
           for library in $libraries
           do
-            latest_version=$(npm view ${{ inputs.npm_namespace }}/"$library" dist-tags.latest 2>/dev/null || echo "0.0.0")
-            package_version=$(jq -r ".version" ${{ inputs.library_path }}/"$library"/package.json)
+            # Sanitize library name
+            library=$(echo "$library" | sed 's/[^a-zA-Z0-9_-]//g')
+            if [[ -z "$library" ]]; then
+              echo "Skipping empty library name"
+              continue
+            fi
+            
+            latest_version=$(npm view "${NPM_NAMESPACE}/${library}" dist-tags.latest 2>/dev/null || echo "0.0.0")
+            package_version=$(jq -r ".version" "${LIBRARY_PATH}/${library}/package.json")
+            
             if [[ "$latest_version" != "$package_version" ]]; then
-              npm publish ${{ inputs.library_path }}/"$library"/ --access public --dry-run
-              npm publish ${{ inputs.library_path }}/"$library"/ --access public
+              npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
+              npm publish "${LIBRARY_PATH}/${library}/" --access public
             fi
           done
           rm .npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          LIBRARIES: ${{ inputs.libraries }}
+          NPM_NAMESPACE: ${{ inputs.npm_namespace }}
+          LIBRARY_PATH: ${{ inputs.library_path }}

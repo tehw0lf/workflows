@@ -43,6 +43,7 @@ jobs:
   publish_docker_image:
     name: publish docker image
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: write
@@ -53,36 +54,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
+      - name: validate docker metadata
+        if: ${{ inputs.docker_meta != '' }}
+        run: |
+          if ! echo '${{ inputs.docker_meta }}' | jq . > /dev/null 2>&1; then
+            echo "Error: docker_meta is not valid JSON"
+            exit 1
+          fi
+        shell: bash
 
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
+      - name: setup build artifact
+        uses: ./.github/actions/setup-artifact
+        id: setup_artifact
         with:
-          name: build
-          path: ${{ inputs.artifact_path }}
+          artifact_path: ${{ inputs.artifact_path }}
 
       - name: run docker pre script
-        if: ${{ inputs.docker_pre != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ inputs.docker_pre != '' && steps.setup_artifact.outputs.exists == 'true' }}
         run: ${{ inputs.docker_pre }}
 
       - name: set up docker
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.setup_artifact.outputs.exists == 'true' }}
         uses: docker/setup-buildx-action@v3
 
       - name: login
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.setup_artifact.outputs.exists == 'true' }}
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ inputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build and push image
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.setup_artifact.outputs.exists == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .

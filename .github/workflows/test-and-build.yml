@@ -73,6 +73,7 @@ jobs:
   test_and_build:
     name: test and build
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 60
     permissions:
       actions: write
       contents: read
@@ -81,6 +82,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.yarn/cache
+            ~/.cache/pip
+            ~/.cache/uv
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.m2/repository
+          key: deps-${{ inputs.tool }}-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/uv.lock', '**/gradle.properties', '**/pom.xml') }}
+          restore-keys: |
+            deps-${{ inputs.tool }}-${{ runner.os }}-
+            deps-${{ inputs.tool }}-
 
       - name: configure jdk
         if: ${{ inputs.tool == './gradlew' || inputs.tool == 'mvn' }}

@@ -33,6 +33,7 @@ jobs:
   release_github:
     name: release artifact on github
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 10
     permissions:
       actions: write
       contents: write

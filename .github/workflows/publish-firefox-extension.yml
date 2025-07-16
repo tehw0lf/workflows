@@ -33,6 +33,7 @@ jobs:
   publish_firefox_extension:
     name: publish firefox extension
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
     permissions:
       actions: write
       contents: write

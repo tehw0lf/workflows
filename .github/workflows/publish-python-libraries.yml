@@ -26,6 +26,7 @@ jobs:
   publish_python_libraries:
     name: publish python libraries
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
     permissions:
       actions: write
       contents: write

@@ -1,0 +1,31 @@
+name: 'Setup Build Artifact'
+description: 'Check for and download build artifacts if they exist'
+inputs:
+  artifact_name:
+    description: 'Name of the artifact to download'
+    required: false
+    default: 'build'
+  artifact_path:
+    description: 'Path where to download the artifact'
+    required: false
+    default: ''
+outputs:
+  exists:
+    description: 'Whether the artifact exists'
+    value: ${{ steps.check_artifact_exists.outputs.exists }}
+runs:
+  using: 'composite'
+  steps:
+    - name: check artifact existence
+      uses: softwareforgood/check-artifact-v4-existence@v0
+      id: check_artifact_exists
+      with:
+        name: ${{ inputs.artifact_name }}
+    
+    - name: download artifact
+      if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: ${{ inputs.artifact_path }}
+      shell: bash
