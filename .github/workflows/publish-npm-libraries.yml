@@ -6,6 +6,11 @@ on:
       NPM_TOKEN:
         required: false
     inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -49,6 +54,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: navigate to root dir
+        run: cd ${{ inputs.root_dir }}
+
       - uses: softwareforgood/check-artifact-v4-existence@v0
         id: check_artifact_exists
         with:
@@ -62,10 +70,14 @@ jobs:
           path: ${{ inputs.artifact_path }}
 
       - uses: actions/setup-node@v4
-        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
           node-version: "20"
           cache: "${{ inputs.tool }}"
+          cache-dependency-path: |
+            ${{ inputs.root_dir }}/package-lock.json
+            ${{ inputs.root_dir }}/yarn.lock
+            ${{ inputs.root_dir }}/pnpm-lock.yaml
 
       - name: publish npm libraries
         if: ${{ env.NPM_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
