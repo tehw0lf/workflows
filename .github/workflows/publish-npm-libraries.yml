@@ -67,7 +67,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.artifact_path }}
+          path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
       - uses: actions/setup-node@v4
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
