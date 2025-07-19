@@ -116,7 +116,7 @@ jobs:
           LIBRARY_PATH: ${{ inputs.library_path }}
 
       - name: publish single npm library
-        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && inputs.library_path != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           path_to_package_json=$(find . -name "package.json" | head -n 1)
@@ -132,3 +132,4 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_NAMESPACE: ${{ inputs.npm_namespace }}
+          LIBRARY_PATH: ${{ inputs.library_path }}
