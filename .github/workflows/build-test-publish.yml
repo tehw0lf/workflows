@@ -179,7 +179,7 @@ jobs:
     secrets: inherit
 
   publish_npm_libraries:
-    if: ${{ github.event_name == 'push' && inputs.libraries != '' && inputs.library_path != '' }}
+    if: ${{ github.event_name == 'push' && inputs.library_path != '' }}
     needs: test_and_build
     uses: ./.github/workflows/publish-npm-libraries.yml
     with:

@@ -79,8 +79,8 @@ jobs:
             ${{ inputs.root_dir }}/yarn.lock
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
-      - name: publish npm libraries
-        if: ${{ env.NPM_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+      - name: publish multiple npm libraries
+        if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
 
@@ -100,7 +100,7 @@ jobs:
               continue
             fi
             
-            latest_version=$(npm view "${NPM_NAMESPACE}/${library}" dist-tags.latest 2>/dev/null || echo "0.0.0")
+            latest_version=$(npm view "$(jq -r ".name" "${LIBRARY_PATH}/${library}/package.json")" dist-tags.latest 2>/dev/null || echo "0.0.0")
             package_version=$(jq -r ".version" "${LIBRARY_PATH}/${library}/package.json")
             
             if [[ "$latest_version" != "$package_version" ]]; then
@@ -108,6 +108,25 @@ jobs:
               npm publish "${LIBRARY_PATH}/${library}/" --access public
             fi
           done
+          rm .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          LIBRARIES: ${{ inputs.libraries }}
+          NPM_NAMESPACE: ${{ inputs.npm_namespace }}
+          LIBRARY_PATH: ${{ inputs.library_path }}
+
+      - name: publish single npm library
+        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+
+          latest_version=$(npm view "$(jq -r ".name" "${LIBRARY_PATH}/package.json")" dist-tags.latest 2>/dev/null || echo "0.0.0")
+          package_version=$(jq -r ".version" "${LIBRARY_PATH}/package.json")
+
+          if [[ "$latest_version" != "$package_version" ]]; then
+            npm publish "${LIBRARY_PATH}/" --access public --dry-run
+            # npm publish "${LIBRARY_PATH}/" --access public
+          fi
           rm .npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
