@@ -183,6 +183,7 @@ jobs:
     needs: test_and_build
     uses: ./.github/workflows/publish-npm-libraries.yml
     with:
+      root_dir: ${{ inputs.root_dir }}
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
