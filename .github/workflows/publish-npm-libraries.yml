@@ -126,7 +126,7 @@ jobs:
 
           if [[ "$latest_version" != "$package_version" ]]; then
             npm publish --access public --dry-run
-            # npm publish --access public
+            npm publish --access public
           fi
           rm .npmrc
         env:
