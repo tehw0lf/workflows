@@ -119,9 +119,10 @@ jobs:
         if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+          path_to_package_json=$(find ${{ inputs.root_dir }} -name "package.json" | head -n 1)
 
-          latest_version=$(npm view "$(jq -r ".name" "${LIBRARY_PATH}/package.json")" dist-tags.latest 2>/dev/null || echo "0.0.0")
-          package_version=$(jq -r ".version" "${LIBRARY_PATH}/package.json")
+          latest_version=$(npm view "$(jq -r ".name" "$path_to_package_json")" dist-tags.latest 2>/dev/null || echo "0.0.0")
+          package_version=$(jq -r ".version" "$path_to_package_json")
 
           if [[ "$latest_version" != "$package_version" ]]; then
             npm publish "${LIBRARY_PATH}/" --access public --dry-run
@@ -130,6 +131,5 @@ jobs:
           rm .npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          LIBRARIES: ${{ inputs.libraries }}
           NPM_NAMESPACE: ${{ inputs.npm_namespace }}
           LIBRARY_PATH: ${{ inputs.library_path }}
