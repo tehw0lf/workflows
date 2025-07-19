@@ -51,11 +51,11 @@ jobs:
       actions: read
       contents: write
       packages: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: navigate to root dir
-        run: cd ${{ inputs.root_dir }}
 
       - uses: softwareforgood/check-artifact-v4-existence@v0
         id: check_artifact_exists
