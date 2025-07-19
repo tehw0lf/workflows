@@ -83,6 +83,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: navigate to root dir
+        run: cd ${{ inputs.root_dir }}
+
       - name: cache dependencies
         uses: actions/cache@v4
         with:
@@ -122,9 +125,6 @@ jobs:
         if: ${{ inputs.tool == 'uv' }}
         with:
           python-version-file: "pyproject.toml"
-
-      - name: navigate to root dir
-        run: cd ${{ inputs.root_dir }}
 
       - name: enable nx shas
         if: ${{ success() && hashFiles('./nx.json') != '' }}
