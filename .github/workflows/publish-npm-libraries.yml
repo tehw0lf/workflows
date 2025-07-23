@@ -128,8 +128,13 @@ jobs:
           package_version=$(jq -r ".version" "$path_to_package_json")
 
           if [[ "$latest_version" != "$package_version" ]]; then
-            npm publish "${LIBRARY_PATH}"/ --access public --dry-run
-            npm publish "${LIBRARY_PATH}"/ --access public
+            if [[ "${LIBRARY_PATH}" == "dist" ]]; then
+              npm publish --access public --dry-run
+              npm publish --access public
+            else
+              npm publish "${LIBRARY_PATH}"/ --access public --dry-run
+              npm publish "${LIBRARY_PATH}"/ --access public
+            fi
           fi
           rm .npmrc
         env:
