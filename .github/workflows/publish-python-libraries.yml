@@ -11,6 +11,11 @@ on:
         default: "ubuntu-latest"
         required: false
         type: string
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
       artifact_path:
         description: "path to artifact files to save from build step"
         default: ""
@@ -50,7 +55,7 @@ jobs:
         if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
         with:
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
 
       - uses: actions/setup-python@v5
         if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}

@@ -123,12 +123,12 @@ jobs:
         if: ${{ inputs.tool == 'uv' }}
         with:
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
 
       - uses: actions/setup-python@v5
         if: ${{ inputs.tool == 'uv' }}
         with:
-          python-version-file: "pyproject.toml"
+          python-version-file: "${{ inputs.root_dir }}/pyproject.toml"
 
       - name: enable nx shas
         if: ${{ success() && hashFiles('./nx.json') != '' }}
