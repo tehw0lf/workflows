@@ -69,6 +69,9 @@ jobs:
           name: build
           path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
+      - name: list artifact
+        run: find ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+
       - uses: actions/setup-node@v4
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
@@ -105,7 +108,7 @@ jobs:
             
             if [[ "$latest_version" != "$package_version" ]]; then
               npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
-              npm publish "${LIBRARY_PATH}/${library}/" --access public
+              npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
             fi
           done
           rm .npmrc
