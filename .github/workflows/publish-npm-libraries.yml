@@ -70,7 +70,7 @@ jobs:
           path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
       - name: list artifact
-        run: find ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+        run: find ${{ inputs.artifact_path }}
 
       - uses: actions/setup-node@v4
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
