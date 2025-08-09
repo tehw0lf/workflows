@@ -41,25 +41,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
+      - name: setup build artifact
+        uses: ./.github/actions/setup-artifact
+        id: setup_artifact
         with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
+          artifact_path: ${{ inputs.artifact_path }}
 
       - name: package firefox extension
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.setup_artifact.outputs.exists == 'true' }}
         run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
         shell: bash
 
       - name: publish firefox extension
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.setup_artifact.outputs.exists == 'true' }}
         uses: wdzeng/firefox-addon@v1.0.5
         with:
           addon-guid: ${{ inputs.addon_guid }}

@@ -28,4 +28,3 @@ runs:
       with:
         name: ${{ inputs.artifact_name }}
         path: ${{ inputs.artifact_path }}
-      shell: bash

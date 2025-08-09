@@ -57,17 +57,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
+      - name: setup build artifact
+        uses: ./.github/actions/setup-artifact
+        id: setup_artifact
         with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+          artifact_path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
       - uses: actions/setup-node@v4
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
@@ -80,7 +74,7 @@ jobs:
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
       - name: publish multiple npm libraries
-        if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.setup_artifact.outputs.exists == 'true'}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
 
@@ -105,7 +99,7 @@ jobs:
             
             if [[ "$latest_version" != "$package_version" ]]; then
               npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
-              npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
+              npm publish "${LIBRARY_PATH}/${library}/" --access public
             fi
           done
           rm .npmrc
@@ -116,7 +110,7 @@ jobs:
           LIBRARY_PATH: ${{ inputs.library_path }}
 
       - name: publish single npm library
-        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.setup_artifact.outputs.exists == 'true'}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           path_to_package_json=$(find . -name "package.json" | head -n 1)

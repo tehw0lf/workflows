@@ -39,28 +39,22 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
+      - name: setup build artifact
+        uses: ./.github/actions/setup-artifact
+        id: setup_artifact
         with:
-          name: build
-
-      - name: download artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
+          artifact_path: ${{ inputs.artifact_path }}
 
       - name: set automatic release tag for python release
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ inputs.tool == 'uv' && steps.setup_artifact.outputs.exists == 'true' }}
         run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
 
       - name: use input release tag if none is set yet
-        if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ env.RELEASE_TAG == '' && steps.setup_artifact.outputs.exists == 'true' }}
         run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
 
       - uses: "marvinpinto/action-automatic-releases@latest"
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.setup_artifact.outputs.exists == 'true' }}
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ env.RELEASE_TAG }}
