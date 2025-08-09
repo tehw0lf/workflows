@@ -39,25 +39,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup build artifact
-        uses: ./.github/actions/setup-artifact
-        id: setup_artifact
+      - name: check build artifact existence
+        uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_artifact_exists
         with:
-          artifact_path: ${{ inputs.artifact_path }}
+          name: build
+
+      - name: download build artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
 
       - uses: astral-sh/setup-uv@v4
-        if: ${{ inputs.tool == 'uv' && steps.setup_artifact.outputs.exists == 'true'}}
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
         with:
           enable-cache: true
           cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
 
       - uses: actions/setup-python@v5
-        if: ${{ inputs.tool == 'uv' && steps.setup_artifact.outputs.exists == 'true'}}
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
         with:
           python-version-file: "pyproject.toml"
 
       - name: publish to pypi
-        if: ${{ env.UV_PUBLISH_TOKEN != '' && steps.setup_artifact.outputs.exists == 'true'}}
+        if: ${{ env.UV_PUBLISH_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: uv publish
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}

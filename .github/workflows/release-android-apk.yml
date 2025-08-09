@@ -44,32 +44,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup app artifact
-        uses: ./.github/actions/setup-artifact
-        id: setup_app_artifact
+      - name: check app artifact existence
+        uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_app_artifact_exists
         with:
-          artifact_name: app
-          artifact_path: ${{ inputs.app_root }}
+          name: app
 
-      - name: setup build artifact
-        uses: ./.github/actions/setup-artifact
-        id: setup_build_artifact
+      - name: download app artifact
+        if: ${{ inputs.app_root != '' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
         with:
-          artifact_name: build
-          artifact_path: ${{ inputs.artifact_path }}
+          name: app
+          path: ${{ inputs.app_root }}
+
+      - name: check build artifact existence
+        uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_build_artifact_exists
+        with:
+          name: build
+
+      - name: download build artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_build_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
 
       - uses: actions/setup-node@v4
-        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
           node-version: "20"
           cache: "${{ inputs.tool }}"
 
       - name: install with npm
-        if: ${{ inputs.tool == 'npm' && steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ inputs.tool == 'npm' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         run: npm ci
 
       - name: cache keystore
-        if: ${{ steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         uses: actions/cache@v4
         id: cache
         with:
@@ -77,7 +89,7 @@ jobs:
           key: keystore-cache
 
       - name: generate keystore
-        if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true'}}
+        if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
         id: generate-keystore
         run: |
           keytool -genkeypair -v \
@@ -90,26 +102,26 @@ jobs:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
 
       - name: set up jdk
-        if: ${{ steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         uses: actions/setup-java@v4
         with:
           distribution: "adopt"
           java-version: "21"
 
       - name: set up android sdk
-        if: ${{ steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         uses: android-actions/setup-android@v3
         with:
           packages: "build-tools;35.0.0"
 
       - name: build apk
-        if: ${{ steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         run: |
           cd ${{ inputs.app_root }}/android
           ./gradlew assembleRelease
 
       - name: sign apk
-        if: ${{ success() && hashFiles('./nx.json') != '' && steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true'}}
+        if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
         run: |
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
@@ -120,14 +132,14 @@ jobs:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
 
       - name: align apk
-        if: ${{ success() && hashFiles('./nx.json') != '' && steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true'}}
+        if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
         run: |
           ${ANDROID_SDK_ROOT}/build-tools/35.0.0/zipalign -v 4 \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
 
       - uses: "marvinpinto/action-automatic-releases@latest"
-        if: ${{ steps.setup_build_artifact.outputs.exists == 'true' && steps.setup_app_artifact.outputs.exists == 'true' }}
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ inputs.release_tag }}
