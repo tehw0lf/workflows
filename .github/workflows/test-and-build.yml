@@ -144,13 +144,9 @@ jobs:
         if: ${{ inputs.tool == 'yarn' }}
         run: yarn install --frozen-lockfile
 
-      - name: install with uv
-        if: ${{ inputs.tool == 'uv' }}
-        run: uv ${{ inputs.install }}
-
-      - name: install with bash
-        if: ${{ inputs.tool == 'bash' }}
-        run: bash ${{ inputs.install }}
+      - name: install with ${{ inputs.tool }}
+        if: ${{ inputs.tool != 'none' && inputs.tool != 'npm' && inputs.tool != 'yarn' }}
+        run: ${{ inputs.tool }} ${{ inputs.install }}
 
       - name: format
         if: ${{ inputs.tool != 'none' && inputs.format != '' }}
