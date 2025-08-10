@@ -37,7 +37,7 @@ jobs:
 The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Key Features:**
-- ✅ Multi-language support (Node.js, Python, Java, Gradle)
+- ✅ Multi-language support (Node.js, Python, Java, Gradle, Bash)
 - ✅ Automated testing and building
 - ✅ Multi-platform publishing (Docker, npm, PyPI, Firefox, Android)
 - ✅ Conditional deployment based on branch and inputs
@@ -46,7 +46,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 - `event_name`: GitHub event name (required)
 
 **Optional Inputs:**
-- `tool`: Build tool (npm, yarn, uv, ./gradlew, mvn)
+- `tool`: Build tool (npm, yarn, uv, ./gradlew, mvn, bash)
 - `lint`: Linting command
 - `test`: Test command
 - `build_main`: Build command for main branch
@@ -251,6 +251,19 @@ with:
   lint: "run lint"
   test: "run test"
   build_main: "build"
+  artifact_path: "dist"
+  event_name: ${{ github.event_name }}
+```
+
+### Bash Scripts
+```yaml
+uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+with:
+  tool: bash
+  install: "install.sh"
+  lint: "lint.sh"
+  test: "test.sh"
+  build_main: "build.sh"
   artifact_path: "dist"
   event_name: ${{ github.event_name }}
 ```

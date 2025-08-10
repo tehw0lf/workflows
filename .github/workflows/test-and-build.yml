@@ -9,7 +9,7 @@ on:
         required: false
         type: string
       tool:
-        description: "build tool - ./gradlew || npm || yarn || mvn || uv"
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv || bash"
         default: "none"
         required: false
         type: string
@@ -147,6 +147,10 @@ jobs:
       - name: install with uv
         if: ${{ inputs.tool == 'uv' }}
         run: uv ${{ inputs.install }}
+
+      - name: install with bash
+        if: ${{ inputs.tool == 'bash' }}
+        run: bash ${{ inputs.install }}
 
       - name: format
         if: ${{ inputs.tool != 'none' && inputs.format != '' }}

@@ -22,7 +22,7 @@ on:
         required: false
         type: string
       tool:
-        description: "build tool - ./gradlew || npm || yarn || mvn || uv"
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv || bash"
         default: "none"
         required: false
         type: string

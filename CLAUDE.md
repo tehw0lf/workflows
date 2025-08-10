@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a collection of reusable GitHub Actions workflows designed to provide comprehensive CI/CD automation for multiple languages and platforms. The workflows support Node.js, Python, Java, Gradle, and Maven projects with automated testing, building, and publishing to various registries (Docker, npm, PyPI, Firefox Add-ons, Android APK releases).
+This is a collection of reusable GitHub Actions workflows designed to provide comprehensive CI/CD automation for multiple languages and platforms. The workflows support Node.js, Python, Java, Gradle, Maven, and Bash projects with automated testing, building, and publishing to various registries (Docker, npm, PyPI, Firefox Add-ons, Android APK releases).
 
 ## Architecture
 
@@ -34,7 +34,7 @@ build-test-publish.yml (orchestrator)
 The main orchestrator that:
 - Takes comprehensive inputs for all supported tools and platforms
 - Conditionally triggers publishing workflows based on `event_name` and input parameters
-- Supports multi-tool builds (npm, yarn, uv, ./gradlew, mvn)
+- Supports multi-tool builds (npm, yarn, uv, ./gradlew, mvn, bash)
 
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
@@ -83,7 +83,7 @@ grep -r "uses.*/.github/workflows" .github/workflows/
 
 ### Workflow Input Patterns
 Key input parameters across workflows:
-- `tool`: Determines build system (npm, yarn, uv, ./gradlew, mvn)
+- `tool`: Determines build system (npm, yarn, uv, ./gradlew, mvn, bash)
 - `artifact_path`: Where build outputs are stored/retrieved
 - `event_name`: Controls conditional execution (push vs pull_request)
 - Platform-specific metadata (docker_meta, addon_guid, etc.)
@@ -98,9 +98,10 @@ Publishing only occurs on:
 ### Multi-language Support
 The workflows dynamically adapt based on `tool` parameter:
 - **npm/yarn**: Node.js 20, package-lock.json/yarn.lock caching
-- **uv**: Python setup from pyproject.toml, uv.lock caching  
+- **uv**: Python setup from pyproject.toml, uv.lock caching
 - **./gradlew**: JDK 21 Temurin, Gradle caching
 - **mvn**: JDK 21 Temurin, Maven repository caching
+- **bash**: Shell script execution with basic environment setup
 
 ### Artifact Management
 Central pattern using `setup-artifact` action:
