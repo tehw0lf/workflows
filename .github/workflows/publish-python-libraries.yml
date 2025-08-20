@@ -59,7 +59,7 @@ jobs:
           cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
 
       - uses: actions/setup-python@v5
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' && hashFiles('pyproject.toml') != ''}}
         with:
           python-version-file: "pyproject.toml"
 
