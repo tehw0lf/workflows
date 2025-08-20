@@ -53,11 +53,11 @@ jobs:
           path: ${{ inputs.artifact_path }}
 
       - name: set automatic release tag for python release from pyproject.toml
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'  && hashFiles('pyproject.toml') != '' }}
+        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' && hashFiles('pyproject.toml') != '' }}
         run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
 
       - name: set automatic release tag for python release from version file
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true'  && hashFiles('version.json') != '' }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && hashFiles(format('{0}/version.json', inputs.artifact_path)) != '' }}
         run: echo "RELEASE_TAG=v$(cat version.json | grep version | awk -F '"' '{print $4}')" >> $GITHUB_ENV
 
       - name: use input release tag if none is set yet
