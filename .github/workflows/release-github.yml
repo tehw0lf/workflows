@@ -58,7 +58,7 @@ jobs:
 
       - name: set automatic release tag for python release from version file
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true'  && hashFiles('version.json') != '' }}
-        run: echo "RELEASE_TAG=$(cat version.json | grep version | awk -F '"' '{print $4}')" >> $GITHUB_ENV
+        run: echo "RELEASE_TAG=v$(cat version.json | grep version | awk -F '"' '{print $4}')" >> $GITHUB_ENV
 
       - name: use input release tag if none is set yet
         if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
