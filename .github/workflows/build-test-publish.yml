@@ -140,6 +140,11 @@ on:
         default: ""
         required: false
         type: string
+      publish_python_libraries:
+        description: "publish python libraries"
+        default: "true"
+        required: false
+        type: string
       release_tag:
         description: "release tag"
         default: "latest"
@@ -193,7 +198,7 @@ jobs:
     secrets: inherit
 
   publish_python_libraries:
-    if: ${{ github.event_name == 'push' && inputs.tool == 'uv' }}
+    if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.publish_python_libraries == 'true' }}
     needs: test_and_build
     uses: ./.github/workflows/publish-python-libraries.yml
     with:
