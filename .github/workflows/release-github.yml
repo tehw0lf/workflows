@@ -28,6 +28,11 @@ on:
         default: "latest"
         required: false
         type: string
+      release_pre:
+        description: "run before performing github release"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   release_github:
@@ -63,6 +68,10 @@ jobs:
       - name: use input release tag if none is set yet
         if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
+
+      - name: run release pre script if present
+        if: ${{ inputs.release_pre != '' }}
+        run: ${{ inputs.release_pre }}
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}

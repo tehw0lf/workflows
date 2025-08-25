@@ -150,6 +150,11 @@ on:
         default: "latest"
         required: false
         type: string
+      release_pre:
+        description: "run before performing github release"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   test_and_build:
@@ -241,4 +246,5 @@ jobs:
       tool: ${{ inputs.tool }}
       publish_github_release: ${{ inputs.publish_github_release }}
       release_tag: ${{ inputs.release_tag }}
+      release_pre: ${{ inputs.release_pre }}
     secrets: inherit
