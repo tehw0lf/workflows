@@ -14,7 +14,7 @@ The repository follows a hierarchical workflow structure:
 1. **Universal Orchestrator** (`build-test-publish.yml`): Main entry point that orchestrates all other workflows based on inputs
 2. **Core Build Workflow** (`test-and-build.yml`): Handles testing, building, and artifact creation
 3. **Publishing Workflows**: Specialized workflows for different publication targets
-4. **Shared Actions** (`setup-artifact`): Reusable composite actions for artifact management
+4. **Third-party Actions**: External actions for artifact existence checking and downloading
 
 ### Workflow Dependencies
 ```
@@ -114,9 +114,9 @@ The workflows dynamically adapt based on `tool` parameter:
 - **bash**: Shell script execution with basic environment setup
 
 ### Artifact Management
-Central pattern using `setup-artifact` action:
-1. Check if build artifact exists from previous job
-2. Download artifact if available and path specified
+Consistent pattern across all publishing workflows:
+1. Check if build artifact exists using `softwareforgood/check-artifact-v4-existence@v0`
+2. Download artifact if available using `actions/download-artifact@v4`
 3. Conditional execution of publishing steps based on artifact existence
 
 This ensures publishing workflows only run when there are actual build outputs to publish.

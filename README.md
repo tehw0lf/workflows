@@ -64,7 +64,7 @@ Core workflow for testing and building applications.
 - ✅ Multi-language toolchain setup
 - ✅ Nx monorepo support
 - ✅ Playwright E2E testing
-- ✅ Configurable timeouts (60 minutes)
+- ✅ Configurable timeouts (45 minutes)
 
 ### 3. Docker Publishing (`publish-docker-image.yml`)
 
@@ -114,7 +114,7 @@ Builds and releases Android APK files.
 - ✅ Automated keystore generation and caching
 - ✅ APK signing and alignment
 - ✅ GitHub releases integration
-- ✅ Timeout protection (45 minutes)
+- ✅ Timeout protection (30 minutes)
 
 ### 8. GitHub Releases (`release-github.yml`)
 
@@ -301,8 +301,7 @@ graph TD
     A --> H[release-github.yml]
     A --> J[summarize-workflow.yml]
 
-    B --> I[.github/actions/setup-artifact]
-    C --> I
+    C --> I[External: check-artifact + download-artifact]
     D --> I
     E --> I
     F --> I
