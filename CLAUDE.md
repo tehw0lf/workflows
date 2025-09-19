@@ -25,7 +25,8 @@ build-test-publish.yml (orchestrator)
 ├── publish-python-libraries.yml (conditional)
 ├── publish-firefox-extension.yml (conditional)
 ├── release-android-apk.yml (conditional)
-└── release-github.yml (conditional)
+├── release-github.yml (conditional)
+└── summarize-workflow.yml (always runs after publishing)
 ```
 
 ## Key Workflows
@@ -53,6 +54,13 @@ Each specialized for different targets:
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment
 
+### Summary Workflow (`summarize-workflow.yml`)
+Dedicated workflow for result aggregation that:
+- Collects status from all publishing workflows
+- Generates comprehensive workflow summary with status table
+- Tracks and outputs published artifacts list
+- Provides visual status indicators (✅ Published, ⏭️ Skipped)
+
 ## Working with This Repository
 
 ### Testing Workflow Changes
@@ -77,8 +85,10 @@ grep -r "uses.*/.github/workflows" .github/workflows/
 
 ### Security Considerations
 - All workflows implement input validation and sanitization
+- Enhanced security with minimal permissions (contents: read by default)
+- Early secret validation with categorized exit codes (2: missing secrets, 3: invalid input)
 - Secrets are conditionally used (workflows only run when secrets exist)
-- Timeouts prevent runaway builds (15-60 minutes depending on complexity)
+- Optimized timeouts prevent runaway builds (5-60 minutes depending on complexity)
 - Minimal permissions principle applied to all jobs
 
 ### Workflow Input Patterns

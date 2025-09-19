@@ -35,11 +35,19 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 15
     permissions:
-      actions: write
-      contents: write
+      actions: read
+      contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v4
+      - name: check required secrets
+        run: |
+          if [[ -z "${{ secrets.AMO_API_KEY }}" || -z "${{ secrets.AMO_API_SECRET }}" ]]; then
+            echo "::error::AMO_API_KEY and AMO_API_SECRET secrets are required for Firefox extension publishing"
+            echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
+            exit 2
+          fi
+
+      - uses: actions/checkout@v5
 
       - name: check build artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0

@@ -1,0 +1,101 @@
+name: summarize workflow results
+
+on:
+  workflow_call:
+    inputs:
+      test_and_build_result:
+        description: "Result of test and build job"
+        required: true
+        type: string
+      publish_docker_image_result:
+        description: "Result of docker image publishing"
+        required: true
+        type: string
+      publish_npm_libraries_result:
+        description: "Result of npm libraries publishing"
+        required: true
+        type: string
+      publish_python_libraries_result:
+        description: "Result of python libraries publishing"
+        required: true
+        type: string
+      publish_firefox_extension_result:
+        description: "Result of firefox extension publishing"
+        required: true
+        type: string
+      release_android_apk_result:
+        description: "Result of android apk release"
+        required: true
+        type: string
+      release_github_result:
+        description: "Result of github release"
+        required: true
+        type: string
+    outputs:
+      artifacts:
+        description: "List of published artifacts"
+        value: ${{ jobs.summarize.outputs.artifacts }}
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      artifacts: ${{ steps.summary.outputs.artifacts }}
+    steps:
+      - name: Generate workflow summary
+        id: summary
+        run: |
+          echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Test | ${{ inputs.test_and_build_result }} |" >> $GITHUB_STEP_SUMMARY
+
+          artifacts=()
+
+          if [[ "${{ inputs.publish_docker_image_result }}" == "success" ]]; then
+            echo "| Docker Images | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+            artifacts+=("docker")
+          elif [[ "${{ inputs.publish_docker_image_result }}" == "skipped" ]]; then
+            echo "| Docker Images | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ inputs.publish_npm_libraries_result }}" == "success" ]]; then
+            echo "| NPM Libraries | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+            artifacts+=("npm")
+          elif [[ "${{ inputs.publish_npm_libraries_result }}" == "skipped" ]]; then
+            echo "| NPM Libraries | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ inputs.publish_python_libraries_result }}" == "success" ]]; then
+            echo "| Python Libraries | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+            artifacts+=("python")
+          elif [[ "${{ inputs.publish_python_libraries_result }}" == "skipped" ]]; then
+            echo "| Python Libraries | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ inputs.publish_firefox_extension_result }}" == "success" ]]; then
+            echo "| Firefox Extension | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+            artifacts+=("firefox")
+          elif [[ "${{ inputs.publish_firefox_extension_result }}" == "skipped" ]]; then
+            echo "| Firefox Extension | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ inputs.release_android_apk_result }}" == "success" ]]; then
+            echo "| Android APK | ✅ Released |" >> $GITHUB_STEP_SUMMARY
+            artifacts+=("android")
+          elif [[ "${{ inputs.release_android_apk_result }}" == "skipped" ]]; then
+            echo "| Android APK | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ inputs.release_github_result }}" == "success" ]]; then
+            echo "| GitHub Release | ✅ Created |" >> $GITHUB_STEP_SUMMARY
+            artifacts+=("github")
+          elif [[ "${{ inputs.release_github_result }}" == "skipped" ]]; then
+            echo "| GitHub Release | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          artifacts_json=$(printf '%s\n' "${artifacts[@]}" | jq -R . | jq -s .)
+          echo "artifacts=$artifacts_json" >> $GITHUB_OUTPUT

@@ -126,6 +126,16 @@ Creates GitHub releases with artifacts.
 - ✅ Artifact attachment
 - ✅ Timeout protection (10 minutes)
 
+### 9. Workflow Summary (`summarize-workflow.yml`)
+
+Aggregates and reports results from all publishing workflows.
+
+**Features:**
+- ✅ Comprehensive status tracking across all workflows
+- ✅ Visual summary table with status indicators
+- ✅ Published artifacts tracking and output
+- ✅ Quick timeout (5 minutes)
+
 ## 🔧 Setup Instructions
 
 ### 1. Required Secrets
@@ -188,6 +198,11 @@ project/
 
 ## 🛡️ Security Features
 
+### Enhanced Security
+- ✅ Updated to latest action versions (checkout@v5, setup-node@v5)
+- ✅ Minimal permissions (contents: read by default)
+- ✅ Early secret validation with categorized exit codes
+
 ### Input Validation
 - ✅ JSON validation for Docker metadata
 - ✅ Library name sanitization
@@ -199,11 +214,16 @@ project/
 - ✅ Artifact existence validation
 
 ### Timeouts
-- ✅ All workflows have appropriate timeouts
+- ✅ Optimized timeouts (5-60 minutes)
 - ✅ Prevents runaway builds
 - ✅ Resource usage optimization
 
 ## 🚀 Performance Optimizations
+
+### Enhanced Performance
+- ✅ Optimized timeouts for faster feedback
+- ✅ Conditional Playwright setup (only when needed)
+- ✅ Comprehensive workflow summary with status reporting
 
 ### Caching Strategy
 - ✅ Multi-language dependency caching
@@ -279,7 +299,8 @@ graph TD
     A --> F[publish-firefox-extension.yml]
     A --> G[release-android-apk.yml]
     A --> H[release-github.yml]
-    
+    A --> J[summarize-workflow.yml]
+
     B --> I[.github/actions/setup-artifact]
     C --> I
     D --> I

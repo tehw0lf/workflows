@@ -49,13 +49,21 @@ jobs:
     timeout-minutes: 20
     permissions:
       actions: read
-      contents: write
+      contents: read
       packages: read
     defaults:
       run:
         working-directory: ${{ inputs.root_dir }}
     steps:
-      - uses: actions/checkout@v4
+      - name: check required secrets
+        run: |
+          if [[ -z "${{ secrets.NPM_TOKEN }}" ]]; then
+            echo "::error::NPM_TOKEN secret is required for npm publishing"
+            echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
+            exit 2
+          fi
+
+      - uses: actions/checkout@v5
 
       - name: check build artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0
@@ -70,7 +78,7 @@ jobs:
           name: build
           path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
           node-version: "20"
@@ -83,12 +91,14 @@ jobs:
       - name: publish multiple npm libraries
         if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
+          echo "::notice::Publishing npm libraries: $LIBRARIES"
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
 
           # Validate inputs to prevent injection
           if [[ ! "$LIBRARIES" =~ ^[a-zA-Z0-9_,-]+$ ]]; then
-            echo "Error: Invalid characters in libraries input"
-            exit 1
+            echo "::error::Invalid characters in libraries input. Only alphanumeric, underscore, hyphen, and comma are allowed."
+            echo "FAILURE_REASON=invalid_input" >> $GITHUB_ENV
+            exit 3
           fi
 
           libraries=$(echo "$LIBRARIES" | tr "," "\n")
@@ -105,8 +115,11 @@ jobs:
             package_version=$(jq -r ".version" "${LIBRARY_PATH}/${library}/package.json")
             
             if [[ "$latest_version" != "$package_version" ]]; then
+              echo "::notice::Publishing $library: $latest_version -> $package_version"
               npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
               npm publish "${LIBRARY_PATH}/${library}/" --access public
+            else
+              echo "::notice::Skipping $library: version $package_version already published"
             fi
           done
           rm .npmrc

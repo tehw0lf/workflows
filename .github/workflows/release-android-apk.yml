@@ -36,13 +36,13 @@ jobs:
   release_android_apk:
     name: release android apk
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       actions: write
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: check app artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0
@@ -70,7 +70,7 @@ jobs:
           name: build
           path: ${{ inputs.artifact_path }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
           node-version: "20"
@@ -138,12 +138,11 @@ jobs:
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - uses: softprops/action-gh-release@v2
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ inputs.release_tag }}
-          prerelease: false
-          title: "Release ${{ inputs.release_tag }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ inputs.release_tag }}
+          name: "Release ${{ inputs.release_tag }}"
           files: |
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk

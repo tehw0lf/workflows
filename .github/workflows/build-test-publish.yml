@@ -2,6 +2,13 @@ name: universal workflow
 
 on:
   workflow_call:
+    outputs:
+      build_status:
+        description: "Build and test status"
+        value: ${{ jobs.test_and_build.outputs.status }}
+      published_artifacts:
+        description: "List of published artifacts"
+        value: ${{ jobs.summarize.outputs.artifacts }}
     secrets:
       ANDROID_STOREPASS:
         required: false
@@ -248,3 +255,16 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       release_pre: ${{ inputs.release_pre }}
     secrets: inherit
+
+  summarize:
+    if: ${{ always() }}
+    needs: [test_and_build, publish_docker_image, publish_npm_libraries, publish_python_libraries, publish_firefox_extension, release_android_apk, release_github]
+    uses: ./.github/workflows/summarize-workflow.yml
+    with:
+      test_and_build_result: ${{ needs.test_and_build.result }}
+      publish_docker_image_result: ${{ needs.publish_docker_image.result }}
+      publish_npm_libraries_result: ${{ needs.publish_npm_libraries.result }}
+      publish_python_libraries_result: ${{ needs.publish_python_libraries.result }}
+      publish_firefox_extension_result: ${{ needs.publish_firefox_extension.result }}
+      release_android_apk_result: ${{ needs.release_android_apk.result }}
+      release_github_result: ${{ needs.release_github.result }}

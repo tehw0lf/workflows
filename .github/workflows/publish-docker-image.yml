@@ -52,15 +52,18 @@ jobs:
       matrix:
         docker: ${{ fromJson(inputs.docker_meta) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: validate docker metadata
         if: ${{ inputs.docker_meta != '' }}
         run: |
           if ! echo '${{ inputs.docker_meta }}' | jq . > /dev/null 2>&1; then
-            echo "Error: docker_meta is not valid JSON"
-            exit 1
+            echo "::error::docker_meta input is not valid JSON. Expected format: [{'name':'image-name','file':'path/to/Dockerfile'}]"
+            echo "::error::Received: ${{ inputs.docker_meta }}"
+            echo "FAILURE_REASON=invalid_input" >> $GITHUB_ENV
+            exit 3
           fi
+          echo "::notice::Building Docker images: $(echo '${{ inputs.docker_meta }}' | jq -r '.[].name' | tr '\n' ' ')"
         shell: bash
 
       - name: check build artifact existence

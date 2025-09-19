@@ -33,11 +33,19 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 15
     permissions:
-      actions: write
-      contents: write
+      actions: read
+      contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v4
+      - name: check required secrets
+        run: |
+          if [[ -z "${{ secrets.UV_TOKEN }}" ]]; then
+            echo "::error::UV_TOKEN secret is required for Python publishing"
+            echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
+            exit 2
+          fi
+
+      - uses: actions/checkout@v5
 
       - name: check build artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0

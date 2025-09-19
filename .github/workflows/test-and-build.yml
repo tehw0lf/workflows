@@ -2,6 +2,10 @@ name: test and build
 
 on:
   workflow_call:
+    outputs:
+      status:
+        description: "Build and test result status"
+        value: ${{ jobs.test_and_build.result }}
     inputs:
       root_dir:
         description: "path to project root"
@@ -73,7 +77,7 @@ jobs:
   test_and_build:
     name: test and build
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 45
     permissions:
       actions: write
       contents: read
@@ -82,7 +86,7 @@ jobs:
       run:
         working-directory: ${{ inputs.root_dir }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -109,7 +113,7 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
           node-version: "20"
@@ -161,7 +165,7 @@ jobs:
         run: ${{ inputs.tool }} ${{ inputs.test }}
 
       - name: Install Playwright dependencies
-        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') &&  hashFiles('**/**/playwright.config.ts') != ''}}
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && hashFiles('**/**/playwright.config.ts') != ''}}
         run: npx playwright install-deps
 
       - name: e2e test

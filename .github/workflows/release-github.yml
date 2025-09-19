@@ -73,12 +73,11 @@ jobs:
         if: ${{ inputs.release_pre != '' }}
         run: ${{ inputs.release_pre }}
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - uses: softprops/action-gh-release@v2
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ env.RELEASE_TAG }}
-          prerelease: false
-          title: "Release ${{ env.RELEASE_TAG }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "Release ${{ env.RELEASE_TAG }}"
           files: |
             ${{ inputs.artifact_path }}
