@@ -3,6 +3,11 @@ name: publish docker image
 on:
   workflow_call:
     inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -48,6 +53,9 @@ jobs:
       actions: read
       contents: write
       packages: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
     strategy:
       matrix:
         docker: ${{ fromJson(inputs.docker_meta) }}

@@ -8,6 +8,11 @@ on:
       AMO_API_SECRET:
         required: false
     inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -38,14 +43,20 @@ jobs:
       actions: read
       contents: read
       packages: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
     steps:
       - name: check required secrets
         run: |
-          if [[ -z "${{ secrets.AMO_API_KEY }}" || -z "${{ secrets.AMO_API_SECRET }}" ]]; then
+          if [[ -z "${{ env.AMO_API_KEY }}" || -z "${{ env.AMO_API_SECRET }}" ]]; then
             echo "::error::AMO_API_KEY and AMO_API_SECRET secrets are required for Firefox extension publishing"
             echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
             exit 2
           fi
+        env:
+          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
 
       - uses: actions/checkout@v5
 

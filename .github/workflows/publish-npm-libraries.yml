@@ -57,11 +57,13 @@ jobs:
     steps:
       - name: check required secrets
         run: |
-          if [[ -z "${{ secrets.NPM_TOKEN }}" ]]; then
+          if [[ -z "${{ env.NPM_TOKEN }}" ]]; then
             echo "::error::NPM_TOKEN secret is required for npm publishing"
             echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
             exit 2
           fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - uses: actions/checkout@v5
 
