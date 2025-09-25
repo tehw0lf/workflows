@@ -97,5 +97,9 @@ jobs:
             echo "| GitHub Release | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          artifacts_json=$(printf '%s\n' "${artifacts[@]}" | jq -R . | jq -s .)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            artifacts_json="[]"
+          else
+            artifacts_json=$(printf '%s\n' "${artifacts[@]}" | jq -R . | jq -s .)
+          fi
           echo "artifacts=$artifacts_json" >> $GITHUB_OUTPUT
