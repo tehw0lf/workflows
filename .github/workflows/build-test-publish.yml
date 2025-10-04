@@ -173,6 +173,7 @@ jobs:
       lint: ${{ inputs.lint }}
       install: ${{ inputs.install }}
       test: ${{ inputs.test }}
+      e2e: ${{ inputs.e2e }}
       build_branch: ${{ inputs.build_branch }}
       build_main: ${{ inputs.build_main }}
       post_build_script: ${{ inputs.post_build_script }}
@@ -186,6 +187,7 @@ jobs:
     needs: test_and_build
     uses: ./.github/workflows/publish-docker-image.yml
     with:
+      root_dir: ${{ inputs.root_dir }}
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
       docker_meta: ${{ inputs.docker_meta }}
