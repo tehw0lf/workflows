@@ -51,13 +51,27 @@ jobs:
           echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Build & Test | ${{ inputs.test_and_build_result }} |" >> $GITHUB_STEP_SUMMARY
+
+          # Build & Test status
+          if [[ "${{ inputs.test_and_build_result }}" == "success" ]]; then
+            echo "| Build & Test | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.test_and_build_result }}" == "failure" ]]; then
+            echo "| Build & Test | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.test_and_build_result }}" == "cancelled" ]]; then
+            echo "| Build & Test | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.test_and_build_result }}" == "skipped" ]]; then
+            echo "| Build & Test | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
 
           artifacts=()
 
           if [[ "${{ inputs.publish_docker_image_result }}" == "success" ]]; then
             echo "| Docker Images | ✅ Published |" >> $GITHUB_STEP_SUMMARY
             artifacts+=("docker")
+          elif [[ "${{ inputs.publish_docker_image_result }}" == "failure" ]]; then
+            echo "| Docker Images | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.publish_docker_image_result }}" == "cancelled" ]]; then
+            echo "| Docker Images | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ inputs.publish_docker_image_result }}" == "skipped" ]]; then
             echo "| Docker Images | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -65,6 +79,10 @@ jobs:
           if [[ "${{ inputs.publish_npm_libraries_result }}" == "success" ]]; then
             echo "| NPM Libraries | ✅ Published |" >> $GITHUB_STEP_SUMMARY
             artifacts+=("npm")
+          elif [[ "${{ inputs.publish_npm_libraries_result }}" == "failure" ]]; then
+            echo "| NPM Libraries | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.publish_npm_libraries_result }}" == "cancelled" ]]; then
+            echo "| NPM Libraries | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ inputs.publish_npm_libraries_result }}" == "skipped" ]]; then
             echo "| NPM Libraries | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -72,6 +90,10 @@ jobs:
           if [[ "${{ inputs.publish_python_libraries_result }}" == "success" ]]; then
             echo "| Python Libraries | ✅ Published |" >> $GITHUB_STEP_SUMMARY
             artifacts+=("python")
+          elif [[ "${{ inputs.publish_python_libraries_result }}" == "failure" ]]; then
+            echo "| Python Libraries | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.publish_python_libraries_result }}" == "cancelled" ]]; then
+            echo "| Python Libraries | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ inputs.publish_python_libraries_result }}" == "skipped" ]]; then
             echo "| Python Libraries | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -79,6 +101,10 @@ jobs:
           if [[ "${{ inputs.publish_firefox_extension_result }}" == "success" ]]; then
             echo "| Firefox Extension | ✅ Published |" >> $GITHUB_STEP_SUMMARY
             artifacts+=("firefox")
+          elif [[ "${{ inputs.publish_firefox_extension_result }}" == "failure" ]]; then
+            echo "| Firefox Extension | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.publish_firefox_extension_result }}" == "cancelled" ]]; then
+            echo "| Firefox Extension | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ inputs.publish_firefox_extension_result }}" == "skipped" ]]; then
             echo "| Firefox Extension | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -86,6 +112,10 @@ jobs:
           if [[ "${{ inputs.release_android_apk_result }}" == "success" ]]; then
             echo "| Android APK | ✅ Released |" >> $GITHUB_STEP_SUMMARY
             artifacts+=("android")
+          elif [[ "${{ inputs.release_android_apk_result }}" == "failure" ]]; then
+            echo "| Android APK | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.release_android_apk_result }}" == "cancelled" ]]; then
+            echo "| Android APK | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ inputs.release_android_apk_result }}" == "skipped" ]]; then
             echo "| Android APK | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -93,6 +123,10 @@ jobs:
           if [[ "${{ inputs.release_github_result }}" == "success" ]]; then
             echo "| GitHub Release | ✅ Created |" >> $GITHUB_STEP_SUMMARY
             artifacts+=("github")
+          elif [[ "${{ inputs.release_github_result }}" == "failure" ]]; then
+            echo "| GitHub Release | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ inputs.release_github_result }}" == "cancelled" ]]; then
+            echo "| GitHub Release | 🚫 Cancelled |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ inputs.release_github_result }}" == "skipped" ]]; then
             echo "| GitHub Release | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -100,6 +134,6 @@ jobs:
           if [ ${#artifacts[@]} -eq 0 ]; then
             artifacts_json="[]"
           else
-            artifacts_json=$(printf '%s\n' "${artifacts[@]}" | jq -R . | jq -s .)
+            artifacts_json=$(printf '%s\n' "${artifacts[@]}" | jq -R . | jq -sc .)
           fi
           echo "artifacts=$artifacts_json" >> $GITHUB_OUTPUT
