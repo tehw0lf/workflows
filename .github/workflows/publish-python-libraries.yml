@@ -65,7 +65,7 @@ jobs:
           name: build
           path: ${{ inputs.artifact_path }}
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
         if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
         with:
           enable-cache: true

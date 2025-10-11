@@ -123,7 +123,7 @@ jobs:
             ${{ inputs.root_dir }}/yarn.lock
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
         if: ${{ inputs.tool == 'uv' }}
         with:
           enable-cache: true
