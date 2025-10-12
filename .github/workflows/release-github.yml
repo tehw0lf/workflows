@@ -44,6 +44,9 @@ jobs:
       contents: write
       packages: read
     steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
       - name: check build artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0
         id: check_artifact_exists
@@ -72,6 +75,14 @@ jobs:
       - name: run release pre script if present
         if: ${{ inputs.release_pre != '' }}
         run: ${{ inputs.release_pre }}
+
+      - name: delete existing release if it exists
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        continue-on-error: true
+        run: |
+          gh release delete ${{ env.RELEASE_TAG }} --yes --cleanup-tag || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: softprops/action-gh-release@v2
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
