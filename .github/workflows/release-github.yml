@@ -76,11 +76,17 @@ jobs:
         if: ${{ inputs.release_pre != '' }}
         run: ${{ inputs.release_pre }}
 
-      - name: delete existing release if it exists
+      - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        continue-on-error: true
+        id: check_release_exists
         run: |
-          gh release delete ${{ env.RELEASE_TAG }} --yes --cleanup-tag || true
+          if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "::error::Release with tag ${{ env.RELEASE_TAG }} already exists. Cannot create duplicate release."
+            exit 1
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
