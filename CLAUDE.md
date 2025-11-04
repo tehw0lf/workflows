@@ -52,7 +52,7 @@ Each specialized for different targets:
 - **Python**: UV-based publishing to PyPI with explicit artifact validation
 - **Firefox**: XPI packaging and AMO publishing
 - **Android**: APK building with keystore management
-- **GitHub**: Release creation with artifact attachment
+- **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
 
 ### Summary Workflow (`summarize-workflow.yml`)
 Dedicated workflow for result aggregation that:
@@ -97,7 +97,23 @@ Key input parameters across workflows:
 - `tool`: Determines build system (npm, yarn, uv, ./gradlew, mvn, bash)
 - `artifact_path`: Where build outputs are stored/retrieved
 - `event_name`: Controls conditional execution (push vs pull_request)
+- `overwrite_release`: Enables non-semver workflows by deleting and recreating releases (default: false)
 - Platform-specific metadata (docker_meta, addon_guid, etc.)
+
+#### Release Overwrite Feature
+The `overwrite_release` parameter enables non-semver release workflows:
+- **Use case**: Projects using fixed tags like `latest`, `v1.0.0`, or date-based tags
+- **Behavior**: When `true`, deletes existing release and tag before creating new one
+- **Default**: `false` (prevents accidental overwrites, fails with error if release exists)
+- **Security**: Requires `contents: write` permission (already granted in release workflow)
+- **Example usage**:
+  ```yaml
+  uses: ./.github/workflows/build-test-publish.yml
+  with:
+    publish_github_release: "true"
+    release_tag: "latest"
+    overwrite_release: "true"  # Enables fixed-tag releases
+  ```
 
 ### Publishing Triggers
 Publishing only occurs on:

@@ -33,6 +33,11 @@ on:
         default: ""
         required: false
         type: string
+      overwrite_release:
+        description: "delete existing release and recreate (enables non-semver workflows)"
+        default: "false"
+        required: false
+        type: string
 
 jobs:
   release_github:
@@ -78,21 +83,34 @@ jobs:
         run: |
           if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
-            echo "::error::[Release] Cannot create duplicate release"
-            exit 3
+            if [[ "${{ inputs.overwrite_release }}" == "true" ]]; then
+              echo "::notice::[Release] Release with tag ${{ env.RELEASE_TAG }} exists, will be overwritten"
+            else
+              echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
+              echo "::error::[Release] Cannot create duplicate release (set overwrite_release: true to replace)"
+              exit 3
+            fi
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: delete existing release if overwrite is enabled
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.exists == 'true' && inputs.overwrite_release == 'true' }}
+        run: |
+          echo "::notice::[Release] Deleting existing release: ${{ env.RELEASE_TAG }}"
+          gh release delete ${{ env.RELEASE_TAG }} --yes --cleanup-tag
+          echo "::notice::[Release] Successfully deleted release and tag"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: run release pre script if present
-        if: ${{ inputs.release_pre != '' && steps.check_release_exists.outputs.exists == 'false' }}
+        if: ${{ inputs.release_pre != '' && (steps.check_release_exists.outputs.exists == 'false' || inputs.overwrite_release == 'true') }}
         run: ${{ inputs.release_pre }}
 
       - uses: softprops/action-gh-release@v2
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.exists == 'false' }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && (steps.check_release_exists.outputs.exists == 'false' || inputs.overwrite_release == 'true') }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ env.RELEASE_TAG }}
