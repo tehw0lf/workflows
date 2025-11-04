@@ -1,15 +1,6 @@
 name: Lint Workflows
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/**"
-      - ".github/actionlint.yaml"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/**"
-      - ".github/actionlint.yaml"
   workflow_call:
 
 jobs:
@@ -42,11 +33,17 @@ jobs:
           path: .actionlint-cache
           key: actionlint-validation-${{ steps.workflow-hash.outputs.hash }}
 
+      - name: Install actionlint
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          sudo mv actionlint /usr/local/bin/
+
       - name: Run actionlint
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd workflows-repo
-          docker run --rm -v "$(pwd):/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/*.yml
+          actionlint -color -config-file .github/actionlint.yaml .github/workflows/*.yml
 
       - name: Create cache marker
         if: steps.cache.outputs.cache-hit != 'true'
