@@ -21,8 +21,8 @@ jobs:
       - name: Generate workflow hash for cache key
         id: workflow-hash
         run: |
-          cd workflows-repo/.github/workflows
-          HASH=$(find . -type f -name '*.yml' -o -name '*.yaml' | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+          cd workflows-repo/.github
+          HASH=$(find workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -o -name 'actionlint.yaml' | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "::notice::[Lint] Workflow hash: $HASH"
 
