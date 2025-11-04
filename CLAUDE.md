@@ -89,10 +89,23 @@ grep -r "uses.*/.github/workflows" .github/workflows/
 
 ### Workflow Validation with actionlint
 The repository uses [actionlint](https://github.com/rhysd/actionlint) for static analysis of workflow files:
-- **Automated CI**: A dedicated `lint.yml` workflow runs on every push/PR affecting workflows
+- **Pre-execution validation gate**: The `lint.yml` workflow is called as the first job in `build-test-publish.yml`
+- **Safety mechanism**: All jobs depend on successful lint validation - invalid workflows cannot execute
+- **Automated CI**: Also runs independently on every push/PR affecting workflow files
 - **Local validation**: Run `actionlint .github/workflows/*.yml` before committing
 - **Reusable workflow support**: actionlint validates inputs/outputs/secrets in reusable workflows
 - **Installation**: `bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)`
+
+#### Validation Gate Architecture
+```
+build-test-publish.yml execution flow:
+  1. lint (validates all workflows) ← MUST PASS
+  2. test_and_build (needs: lint) ← Only runs if lint passes
+  3. [publishing jobs] (needs: test_and_build)
+  4. summarize (needs: all publishing jobs)
+```
+
+This ensures that workflows on the `main` branch are always valid before execution.
 
 ### Security Considerations
 - All workflows implement input validation and sanitization

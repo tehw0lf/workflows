@@ -162,7 +162,10 @@ on:
         type: string
 
 jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
   test_and_build:
+    needs: lint
     uses: ./.github/workflows/test-and-build.yml
     with:
       root_dir: ${{ inputs.root_dir }}
@@ -259,7 +262,16 @@ jobs:
 
   summarize:
     if: ${{ always() }}
-    needs: [test_and_build, publish_docker_image, publish_npm_libraries, publish_python_libraries, publish_firefox_extension, release_android_apk, release_github]
+    needs:
+      [
+        test_and_build,
+        publish_docker_image,
+        publish_npm_libraries,
+        publish_python_libraries,
+        publish_firefox_extension,
+        release_android_apk,
+        release_github,
+      ]
     uses: ./.github/workflows/summarize-workflow.yml
     with:
       test_and_build_result: ${{ needs.test_and_build.result }}
