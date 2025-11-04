@@ -7,6 +7,7 @@ paths:
     ignore:
       - 'shellcheck reported issue in this script: SC2086:.+'  # Double quote to prevent globbing - often intentional
       - 'shellcheck reported issue in this script: SC2001:.+'  # Style suggestion for sed replacement
+      - 'shellcheck reported issue in this script: SC2002:.+'  # Useless cat (style suggestion)
       - 'shellcheck reported issue in this script: SC2129:.+'  # Style suggestion for redirect grouping
       - 'shellcheck reported issue in this script: SC2035:.+'  # Info about glob patterns
       - 'shellcheck reported issue in this script: SC2153:.+'  # False positive for environment variables
