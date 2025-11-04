@@ -2,10 +2,6 @@ name: test and build
 
 on:
   workflow_call:
-    outputs:
-      status:
-        description: "Build and test result status"
-        value: ${{ jobs.test_and_build.result }}
     inputs:
       root_dir:
         description: "path to project root"

@@ -74,6 +74,9 @@ Since this repository contains reusable workflows, testing requires:
 This repository doesn't contain traditional build commands since it's pure GitHub Actions YAML. Instead:
 
 ```bash
+# Lint workflows with actionlint (recommended)
+actionlint .github/workflows/*.yml
+
 # Validate YAML syntax
 yamllint .github/workflows/
 
@@ -83,6 +86,13 @@ act -W .github/workflows/test-and-build.yml
 # Check workflow references
 grep -r "uses.*/.github/workflows" .github/workflows/
 ```
+
+### Workflow Validation with actionlint
+The repository uses [actionlint](https://github.com/rhysd/actionlint) for static analysis of workflow files:
+- **Automated CI**: A dedicated `lint.yml` workflow runs on every push/PR affecting workflows
+- **Local validation**: Run `actionlint .github/workflows/*.yml` before committing
+- **Reusable workflow support**: actionlint validates inputs/outputs/secrets in reusable workflows
+- **Installation**: `bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)`
 
 ### Security Considerations
 - All workflows implement input validation and sanitization
