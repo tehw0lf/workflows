@@ -26,37 +26,84 @@ jobs:
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "::notice::[Lint] Workflow hash: $HASH"
 
-      - name: Check validation cache
-        id: cache
+      - name: Check Gist cache for validated hash
+        id: gist-cache
+        env:
+          GIST_ID: ${{ secrets.WORKFLOW_VALIDATION_GIST_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HASH="${{ steps.workflow-hash.outputs.hash }}"
+
+          if [ -z "$GIST_ID" ]; then
+            echo "::notice::[Lint] No Gist cache configured (WORKFLOW_VALIDATION_GIST_ID secret not set)"
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Fetch Gist content
+          GIST_CONTENT=$(gh gist view "$GIST_ID" --raw 2>/dev/null || echo "")
+
+          if echo "$GIST_CONTENT" | grep -q "^$HASH$"; then
+            echo "::notice::[Lint] Validation cache hit in Gist (cross-repository cache)"
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
+          else
+            echo "::notice::[Lint] Hash not found in Gist cache"
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check local validation cache
+        if: steps.gist-cache.outputs.cache-hit != 'true'
+        id: local-cache
         uses: actions/cache@v4
         with:
           path: .actionlint-cache
           key: actionlint-validation-${{ steps.workflow-hash.outputs.hash }}
 
       - name: Install actionlint
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           sudo mv actionlint /usr/local/bin/
 
       - name: Run actionlint
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         run: |
           cd workflows-repo
           actionlint -color -config-file .github/actionlint.yaml .github/workflows/*.yml
 
-      - name: Create cache marker
-        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Create local cache marker
+        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p .actionlint-cache
           echo "Validated at $(date -u +"%Y-%m-%d %H:%M:%S UTC")" > .actionlint-cache/validated
           echo "Hash: ${{ steps.workflow-hash.outputs.hash }}" >> .actionlint-cache/validated
 
+      - name: Update Gist cache with validated hash
+        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
+        env:
+          GIST_ID: ${{ secrets.WORKFLOW_VALIDATION_GIST_ID }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_VALIDATION_TOKEN }}
+        run: |
+          HASH="${{ steps.workflow-hash.outputs.hash }}"
+
+          if [ -z "$GIST_ID" ] || [ -z "$GH_TOKEN" ]; then
+            echo "::notice::[Lint] Skipping Gist update (WORKFLOW_VALIDATION_GIST_ID or WORKFLOW_VALIDATION_TOKEN not set)"
+            exit 0
+          fi
+
+          # Replace Gist content with latest validated hash only
+          echo "$HASH" > validated-hashes.txt
+          gh gist edit "$GIST_ID" validated-hashes.txt
+          echo "::notice::[Lint] Updated Gist cache with latest validated hash for cross-repository sharing"
+
       - name: Workflow validation summary
         run: |
-          if [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
-            echo "✅ Workflow validation passed (cached)"
-            echo "::notice::[Lint] Validation result retrieved from cache"
+          if [ "${{ steps.gist-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Workflow validation passed (Gist cache - cross-repository)"
+            echo "::notice::[Lint] Validation result retrieved from Gist cache"
+          elif [ "${{ steps.local-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Workflow validation passed (local cache)"
+            echo "::notice::[Lint] Validation result retrieved from local cache"
           else
             echo "✅ All workflows passed actionlint validation"
             echo "::notice::[Lint] Validation completed and cached for future runs"
