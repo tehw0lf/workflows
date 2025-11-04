@@ -113,7 +113,7 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
           node-version: "20"

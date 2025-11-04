@@ -70,7 +70,7 @@ jobs:
           name: build
           path: ${{ inputs.artifact_path }}
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
           node-version: "20"
