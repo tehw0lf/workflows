@@ -16,3 +16,4 @@ shellcheck:
     - SC2129  # Style suggestion for redirect grouping
     - SC2035  # Info about glob patterns
     - SC2153  # False positive for environment variables
+    - SC2155  # Declare and assign separately - acceptable in simple scripts
