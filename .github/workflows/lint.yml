@@ -1,13 +1,16 @@
 name: Lint Workflows
 
+env:
+  GIST_CACHE_ID: "d7ae5d4397f1fd4c7ca82fa53912c8cc"
+
 on:
   workflow_call:
-    inputs:
-      gist_cache_id:
-        description: "Gist ID for cross-repository validation cache"
-        required: false
-        type: string
-        default: "d7ae5d4397f1fd4c7ca82fa53912c8cc"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/**"
+      - ".github/actionlint.yaml"
 
 jobs:
   actionlint:
@@ -17,6 +20,18 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Detect repository context
+        id: context
+        run: |
+          REPO="${{ github.repository }}"
+          if [ "$REPO" = "tehw0lf/workflows" ]; then
+            echo "is_workflow_repo=true" >> $GITHUB_OUTPUT
+            echo "::notice::Running in workflows repository - write mode enabled"
+          else
+            echo "is_workflow_repo=false" >> $GITHUB_OUTPUT
+            echo "::notice::Running in external repository - read-only mode"
+          fi
+
       - name: Checkout workflow repository
         uses: actions/checkout@v5
         with:
@@ -35,7 +50,7 @@ jobs:
       - name: Check Gist cache for validated hash
         id: gist-cache
         env:
-          GIST_ID: ${{ inputs.gist_cache_id }}
+          GIST_ID: ${{ env.GIST_CACHE_ID }}
           GH_TOKEN: ${{ github.token }}
         run: |
           HASH="${{ steps.workflow-hash.outputs.hash }}"
@@ -85,9 +100,12 @@ jobs:
           echo "Hash: ${{ steps.workflow-hash.outputs.hash }}" >> .actionlint-cache/validated
 
       - name: Update Gist cache with validated hash
-        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
+        if: |
+          steps.gist-cache.outputs.cache-hit != 'true' && 
+          steps.local-cache.outputs.cache-hit != 'true' && 
+          steps.context.outputs.is_workflow_repo == 'true'
         env:
-          GIST_ID: ${{ inputs.gist_cache_id }}
+          GIST_ID: ${{ env.GIST_CACHE_ID }}
           GH_TOKEN: ${{ secrets.WORKFLOW_VALIDATION_TOKEN }}
         run: |
           HASH="${{ steps.workflow-hash.outputs.hash }}"
