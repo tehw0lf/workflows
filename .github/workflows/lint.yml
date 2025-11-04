@@ -2,12 +2,6 @@ name: Lint Workflows
 
 on:
   workflow_call:
-    inputs:
-      gist_cache_id:
-        description: "Gist ID for cross-repository validation cache (optional)"
-        required: false
-        type: string
-        default: "d7ae5d4397f1fd4c7ca82fa53912c8cc"
 
 jobs:
   actionlint:
@@ -15,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: write  # Needed to push validated hash to workflows repository
     steps:
       - name: Checkout workflow repository
         uses: actions/checkout@v5
@@ -32,33 +26,27 @@ jobs:
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "::notice::[Lint] Workflow hash: $HASH"
 
-      - name: Check Gist cache for validated hash
-        id: gist-cache
+      - name: Check cross-repository validation cache
+        id: cross-repo-cache
         env:
-          GIST_ID: ${{ inputs.gist_cache_id }}
           GH_TOKEN: ${{ github.token }}
         run: |
           HASH="${{ steps.workflow-hash.outputs.hash }}"
 
-          if [ -z "$GIST_ID" ]; then
-            echo "::notice::[Lint] No Gist cache configured (gist_cache_id input not provided)"
-            echo "cache-hit=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          # Check if validated hash file exists in the workflows repository
+          # NOTE: Stored outside .github/ to avoid being included in hash calculation
+          CACHED_HASH=$(cat workflows-repo/.validated-hash 2>/dev/null || echo "")
 
-          # Fetch Gist content
-          GIST_CONTENT=$(gh gist view "$GIST_ID" --raw 2>/dev/null || echo "")
-
-          if echo "$GIST_CONTENT" | grep -q "^$HASH$"; then
-            echo "::notice::[Lint] Validation cache hit in Gist (cross-repository cache)"
+          if [ "$CACHED_HASH" = "$HASH" ]; then
+            echo "::notice::[Lint] Validation cache hit (cross-repository cache from workflows repo)"
             echo "cache-hit=true" >> $GITHUB_OUTPUT
           else
-            echo "::notice::[Lint] Hash not found in Gist cache"
+            echo "::notice::[Lint] Hash not found in cross-repository cache"
             echo "cache-hit=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Check local validation cache
-        if: steps.gist-cache.outputs.cache-hit != 'true'
+        if: steps.cross-repo-cache.outputs.cache-hit != 'true'
         id: local-cache
         uses: actions/cache@v4
         with:
@@ -66,52 +54,55 @@ jobs:
           key: actionlint-validation-${{ steps.workflow-hash.outputs.hash }}
 
       - name: Install actionlint
-        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
+        if: steps.cross-repo-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           sudo mv actionlint /usr/local/bin/
 
       - name: Run actionlint
-        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
+        if: steps.cross-repo-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         run: |
           cd workflows-repo
           actionlint -color -config-file .github/actionlint.yaml .github/workflows/*.yml
 
       - name: Create local cache marker
-        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
+        if: steps.cross-repo-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p .actionlint-cache
           echo "Validated at $(date -u +"%Y-%m-%d %H:%M:%S UTC")" > .actionlint-cache/validated
           echo "Hash: ${{ steps.workflow-hash.outputs.hash }}" >> .actionlint-cache/validated
 
-      - name: Update Gist cache with validated hash
-        if: steps.gist-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
+      - name: Update cross-repository cache
+        if: steps.cross-repo-cache.outputs.cache-hit != 'true' && steps.local-cache.outputs.cache-hit != 'true'
         env:
-          GIST_ID: ${{ inputs.gist_cache_id }}
-          GH_TOKEN: ${{ secrets.WORKFLOW_VALIDATION_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           HASH="${{ steps.workflow-hash.outputs.hash }}"
 
-          if [ -z "$GIST_ID" ]; then
-            echo "::notice::[Lint] Skipping Gist update (gist_cache_id input not provided)"
-            exit 0
-          fi
+          cd workflows-repo
 
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::[Lint] Skipping Gist update (WORKFLOW_VALIDATION_TOKEN secret not set - read-only mode)"
-            exit 0
-          fi
+          # Write hash to cache file (outside .github/ to avoid hash calculation loop)
+          echo "$HASH" > .validated-hash
 
-          # Replace Gist content with latest validated hash only
-          echo "$HASH" > validated-hashes.txt
-          gh gist edit "$GIST_ID" validated-hashes.txt
-          echo "::notice::[Lint] Updated Gist cache with latest validated hash for cross-repository sharing"
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit and push if changed
+          if ! git diff --quiet .validated-hash; then
+            git add .validated-hash
+            git commit -m "chore(lint): update validated workflow hash [skip ci]"
+            git push origin main
+            echo "::notice::[Lint] Updated cross-repository cache in workflows repository"
+          else
+            echo "::notice::[Lint] Cross-repository cache already up to date"
+          fi
 
       - name: Workflow validation summary
         run: |
-          if [ "${{ steps.gist-cache.outputs.cache-hit }}" = "true" ]; then
-            echo "✅ Workflow validation passed (Gist cache - cross-repository)"
-            echo "::notice::[Lint] Validation result retrieved from Gist cache"
+          if [ "${{ steps.cross-repo-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Workflow validation passed (cross-repository cache)"
+            echo "::notice::[Lint] Validation result retrieved from cross-repository cache"
           elif [ "${{ steps.local-cache.outputs.cache-hit }}" = "true" ]; then
             echo "✅ Workflow validation passed (local cache)"
             echo "::notice::[Lint] Validation result retrieved from local cache"
