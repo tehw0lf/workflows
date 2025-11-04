@@ -88,14 +88,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Commit and push if changed
-          if ! git diff --quiet .validated-hash; then
-            git add .validated-hash
+          # Add file and check if there are changes to commit
+          git add .validated-hash
+          if git diff --cached --quiet .validated-hash; then
+            echo "::notice::[Lint] Cross-repository cache already up to date"
+          else
             git commit -m "chore(lint): update validated workflow hash [skip ci]"
             git push origin main
             echo "::notice::[Lint] Updated cross-repository cache in workflows repository"
-          else
-            echo "::notice::[Lint] Cross-repository cache already up to date"
           fi
 
       - name: Workflow validation summary
