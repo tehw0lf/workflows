@@ -1,0 +1,18 @@
+# actionlint configuration
+# Only fail on errors and warnings, not info/style suggestions from shellcheck
+
+# Shellcheck configuration
+shellcheck:
+  # Ignore info and style severity issues
+  # SC2086 (info): Double quote to prevent globbing
+  # SC2001 (style): See if you can use ${variable//search/replace}
+  # SC2129 (style): Consider using { cmd1; cmd2; } >> file
+  # SC2035 (info): Use ./*glob* or -- *glob* for dash handling
+  # SC2153 (info): Possible misspelling
+  # SC2155 (warning): Declare and assign separately
+  exclude:
+    - SC2086  # Double quote to prevent globbing - often intentional in GitHub Actions
+    - SC2001  # Style suggestion for sed replacement
+    - SC2129  # Style suggestion for redirect grouping
+    - SC2035  # Info about glob patterns
+    - SC2153  # False positive for environment variables
