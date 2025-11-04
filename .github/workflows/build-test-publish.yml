@@ -2,13 +2,6 @@ name: universal workflow
 
 on:
   workflow_call:
-    outputs:
-      build_status:
-        description: "Build and test status"
-        value: ${{ jobs.test_and_build.outputs.status }}
-      published_artifacts:
-        description: "List of published artifacts"
-        value: ${{ jobs.summarize.outputs.artifacts }}
     secrets:
       ANDROID_STOREPASS:
         required: false

@@ -165,7 +165,7 @@ jobs:
         run: ${{ inputs.tool }} ${{ inputs.test }}
 
       - name: Install Playwright dependencies
-        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && hashFiles('**/**/playwright.config.ts') != ''}}
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
         run: npx playwright install-deps
 
       - name: e2e test
@@ -184,14 +184,14 @@ jobs:
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
         run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
 
-      - name: upload artifact
+      - name: upload build artifact (from artifact_path)
         if: ${{ github.event_name == 'push' && inputs.artifact_path != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: build
           path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
-      - name: upload artifact
+      - name: upload app artifact (from app_root)
         if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
         uses: actions/upload-artifact@v4
         with:

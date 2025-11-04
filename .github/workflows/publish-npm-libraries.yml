@@ -58,7 +58,7 @@ jobs:
       - name: check required secrets
         run: |
           if [[ -z "${{ env.NPM_TOKEN }}" ]]; then
-            echo "::error::NPM_TOKEN secret is required for npm publishing"
+            echo "::error::[NPM] Missing required secret: NPM_TOKEN"
             echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
             exit 2
           fi
@@ -78,7 +78,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build
-          path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+          path: ${{ inputs.artifact_path }}
 
       - uses: actions/setup-node@v5
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
@@ -93,12 +93,14 @@ jobs:
       - name: publish multiple npm libraries
         if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
-          echo "::notice::Publishing npm libraries: $LIBRARIES"
+          echo "::notice::[NPM] Publishing libraries: $LIBRARIES"
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
 
           # Validate inputs to prevent injection
           if [[ ! "$LIBRARIES" =~ ^[a-zA-Z0-9_,-]+$ ]]; then
-            echo "::error::Invalid characters in libraries input. Only alphanumeric, underscore, hyphen, and comma are allowed."
+            echo "::error::[NPM] Invalid input 'libraries': contains invalid characters"
+            echo "::error::[NPM] Expected: alphanumeric characters, underscore, hyphen, and comma only"
+            echo "::error::[NPM] Received: $LIBRARIES"
             echo "FAILURE_REASON=invalid_input" >> $GITHUB_ENV
             exit 3
           fi
@@ -109,19 +111,19 @@ jobs:
             # Sanitize library name
             library=$(echo "$library" | sed 's/[^a-zA-Z0-9_-]//g')
             if [[ -z "$library" ]]; then
-              echo "Skipping empty library name"
+              echo "::warning::[NPM] Skipping empty library name after sanitization"
               continue
             fi
-            
+
             latest_version=$(npm view "$(jq -r ".name" "${LIBRARY_PATH}/${library}/package.json")" dist-tags.latest 2>/dev/null || echo "0.0.0")
             package_version=$(jq -r ".version" "${LIBRARY_PATH}/${library}/package.json")
-            
+
             if [[ "$latest_version" != "$package_version" ]]; then
-              echo "::notice::Publishing $library: $latest_version -> $package_version"
+              echo "::notice::[NPM] Publishing ${library}: ${latest_version} -> ${package_version}"
               npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
               npm publish "${LIBRARY_PATH}/${library}/" --access public
             else
-              echo "::notice::Skipping $library: version $package_version already published"
+              echo "::notice::[NPM] Skipping ${library}: version ${package_version} already published"
             fi
           done
           rm .npmrc

@@ -72,26 +72,27 @@ jobs:
         if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
 
-      - name: run release pre script if present
-        if: ${{ inputs.release_pre != '' }}
-        run: ${{ inputs.release_pre }}
-
       - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: check_release_exists
         run: |
           if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "::error::Release with tag ${{ env.RELEASE_TAG }} already exists. Cannot create duplicate release."
-            exit 1
+            echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
+            echo "::error::[Release] Cannot create duplicate release"
+            exit 3
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: run release pre script if present
+        if: ${{ inputs.release_pre != '' && steps.check_release_exists.outputs.exists == 'false' }}
+        run: ${{ inputs.release_pre }}
+
       - uses: softprops/action-gh-release@v2
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.exists == 'false' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ env.RELEASE_TAG }}

@@ -57,6 +57,7 @@ jobs:
       run:
         working-directory: ${{ inputs.root_dir }}
     strategy:
+      fail-fast: false
       matrix:
         docker: ${{ fromJson(inputs.docker_meta) }}
     steps:
@@ -66,12 +67,13 @@ jobs:
         if: ${{ inputs.docker_meta != '' }}
         run: |
           if ! echo '${{ inputs.docker_meta }}' | jq . > /dev/null 2>&1; then
-            echo "::error::docker_meta input is not valid JSON. Expected format: [{'name':'image-name','file':'path/to/Dockerfile'}]"
-            echo "::error::Received: ${{ inputs.docker_meta }}"
+            echo "::error::[Docker] Invalid input 'docker_meta': not valid JSON"
+            echo "::error::[Docker] Expected: [{'name':'image-name','file':'path/to/Dockerfile'}]"
+            echo "::error::[Docker] Received: ${{ inputs.docker_meta }}"
             echo "FAILURE_REASON=invalid_input" >> $GITHUB_ENV
             exit 3
           fi
-          echo "::notice::Building Docker images: $(echo '${{ inputs.docker_meta }}' | jq -r '.[].name' | tr '\n' ' ')"
+          echo "::notice::[Docker] Building images: $(echo '${{ inputs.docker_meta }}' | jq -r '.[].name' | tr '\n' ' ')"
         shell: bash
 
       - name: check build artifact existence

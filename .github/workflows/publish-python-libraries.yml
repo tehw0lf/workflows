@@ -43,7 +43,7 @@ jobs:
       - name: check required secrets
         run: |
           if [[ -z "${{ env.UV_TOKEN }}" ]]; then
-            echo "::error::UV_TOKEN secret is required for Python publishing"
+            echo "::error::[PyPI] Missing required secret: UV_TOKEN"
             echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
             exit 2
           fi
@@ -58,6 +58,15 @@ jobs:
         with:
           name: build
 
+      - name: validate artifact availability
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists != 'true' }}
+        run: |
+          echo "::error::[PyPI] Build artifact 'build' not found"
+          echo "::error::[PyPI] Expected artifact at: ${{ inputs.artifact_path }}"
+          echo "::error::[PyPI] This usually means the build step failed or didn't produce artifacts"
+          echo "FAILURE_REASON=missing_artifact" >> $GITHUB_ENV
+          exit 1
+
       - name: download build artifact
         if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         uses: actions/download-artifact@v4
@@ -66,18 +75,18 @@ jobs:
           path: ${{ inputs.artifact_path }}
 
       - uses: astral-sh/setup-uv@v7
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ success() }}
         with:
           enable-cache: true
           cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
 
       - uses: actions/setup-python@v5
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' && hashFiles('pyproject.toml') != '' }}
+        if: ${{ success() && hashFiles('pyproject.toml') != '' }}
         with:
           python-version-file: "pyproject.toml"
 
       - name: publish to pypi
-        if: ${{ env.UV_PUBLISH_TOKEN != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ success() }}
         run: uv publish
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_TOKEN }}

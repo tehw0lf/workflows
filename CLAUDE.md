@@ -40,16 +40,16 @@ The main orchestrator that:
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
 - Sets up language-specific environments (Node.js 20, Python via pyproject.toml, Java 21)
-- Implements comprehensive caching for dependencies across all tools
+- Implements comprehensive caching for dependencies across all tools (tool-specific cache keys)
 - Supports Nx monorepos with SHA optimization
-- Handles Playwright E2E testing automatically
-- Creates build artifacts for downstream workflows
+- Handles Playwright E2E testing automatically (supports .ts, .js, and .mjs config variants)
+- Creates build artifacts for downstream workflows with descriptive suffixes
 
 ### Publishing Workflows
 Each specialized for different targets:
-- **Docker**: Multi-platform builds (amd64/arm64), registry flexibility
-- **npm**: Version comparison, multi-library support, input sanitization
-- **Python**: UV-based publishing to PyPI
+- **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
+- **npm**: Version comparison, multi-library support, input sanitization, dry-run validation
+- **Python**: UV-based publishing to PyPI with explicit artifact validation
 - **Firefox**: XPI packaging and AMO publishing
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment
@@ -60,6 +60,7 @@ Dedicated workflow for result aggregation that:
 - Generates comprehensive workflow summary with status table
 - Tracks and outputs published artifacts list
 - Provides visual status indicators (✅ Published, ⏭️ Skipped)
+- Recently refactored from 90 lines to 30 lines (67% reduction) using helper functions
 
 ## Working with This Repository
 
@@ -120,3 +121,27 @@ Consistent pattern across all publishing workflows:
 3. Conditional execution of publishing steps based on artifact existence
 
 This ensures publishing workflows only run when there are actual build outputs to publish.
+
+### Automated Maintenance
+The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
+- Weekly automated updates to GitHub Actions versions
+- Ensures security patches are applied promptly
+- Reduces manual maintenance burden
+
+### Recent Optimizations (Phase 1-3)
+Key improvements made to the workflow suite:
+1. **Artifact clarity**: Added descriptive suffixes to artifact uploads
+2. **Output cleanup**: Removed unused workflow outputs
+3. **Validation**: Added explicit artifact validation in Python workflow
+4. **Resilience**: Added fail-fast: false to Docker matrix builds
+5. **Playwright support**: Extended config detection to .ts, .js, and .mjs variants
+6. **Code reduction**: Refactored summary workflow (67% line reduction)
+7. **Automation**: Added Dependabot for weekly action updates
+
+### Known Correct Patterns (Do Not Change)
+These patterns are intentionally designed and verified as correct:
+- Docker/Python workflows use artifact path without root_dir prefix
+- NPM workflow uses root_dir prefix (required for Nx monorepos)
+- Tool-specific caching already optimized with ${{ inputs.tool }} in cache keys
+- npm dry-run serves validation purpose (catches errors before publish)
+- All checkout steps are necessary for their specific purposes
