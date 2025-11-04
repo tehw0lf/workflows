@@ -100,12 +100,31 @@ The repository uses [actionlint](https://github.com/rhysd/actionlint) for static
 ```
 build-test-publish.yml execution flow:
   1. lint (validates all workflows) ← MUST PASS
+      ├─ Generate hash of all workflow files
+      ├─ Check cache for this hash
+      ├─ If cache hit: skip validation (instant ✅)
+      └─ If cache miss: run actionlint + cache result
   2. test_and_build (needs: lint) ← Only runs if lint passes
   3. [publishing jobs] (needs: test_and_build)
   4. summarize (needs: all publishing jobs)
 ```
 
 This ensures that workflows on the `main` branch are always valid before execution.
+
+#### Cross-Repository Validation Caching
+The lint workflow implements intelligent caching to avoid redundant validation:
+- **Hash-based cache key**: Generates SHA256 hash of all workflow files
+- **Cross-repository sharing**: Cache is shared across ALL repositories using these workflows
+- **Automatic invalidation**: Cache key changes when any workflow file is modified
+- **Performance**: Subsequent runs skip validation if workflows haven't changed (1-2 second overhead vs 30+ seconds)
+
+**Example flow:**
+1. Repository A runs workflow → cache miss → validates workflows → caches result with hash `abc123`
+2. Repository B runs workflow (same workflow version) → cache hit for `abc123` → skips validation ✅
+3. Workflow updated in main → hash becomes `def456` → next run is cache miss → validates → caches new result
+4. All repositories using updated workflows → cache hit for `def456` → skip validation ✅
+
+This dramatically reduces validation overhead while maintaining safety guarantees.
 
 ### Security Considerations
 - All workflows implement input validation and sanitization

@@ -18,14 +18,47 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout repository
+      - name: Checkout workflow repository
         uses: actions/checkout@v5
+        with:
+          repository: tehw0lf/workflows
+          ref: main
+          path: workflows-repo
+
+      - name: Generate workflow hash for cache key
+        id: workflow-hash
+        run: |
+          cd workflows-repo/.github/workflows
+          HASH=$(find . -type f -name '*.yml' -o -name '*.yaml' | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+          echo "::notice::[Lint] Workflow hash: $HASH"
+
+      - name: Check validation cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: .actionlint-cache
+          key: actionlint-validation-${{ steps.workflow-hash.outputs.hash }}
 
       - name: Run actionlint
-        uses: docker://rhysd/actionlint:latest
-        with:
-          args: -color
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd workflows-repo
+          docker run --rm -v "$(pwd):/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/*.yml
+
+      - name: Create cache marker
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .actionlint-cache
+          echo "Validated at $(date -u +"%Y-%m-%d %H:%M:%S UTC")" > .actionlint-cache/validated
+          echo "Hash: ${{ steps.workflow-hash.outputs.hash }}" >> .actionlint-cache/validated
 
       - name: Workflow validation summary
-        if: success()
-        run: echo "✅ All workflows passed actionlint validation"
+        run: |
+          if [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Workflow validation passed (cached)"
+            echo "::notice::[Lint] Validation result retrieved from cache"
+          else
+            echo "✅ All workflows passed actionlint validation"
+            echo "::notice::[Lint] Validation completed and cached for future runs"
+          fi
