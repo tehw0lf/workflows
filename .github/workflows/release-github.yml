@@ -50,7 +50,7 @@ jobs:
       packages: read
     steps:
       - name: checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: check build artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0
