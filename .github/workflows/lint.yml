@@ -61,10 +61,8 @@ jobs:
             exit 0
           fi
 
-          # Fetch Gist content
-          GIST_CONTENT=$(gh gist view "$GIST_ID" --raw 2>/dev/null || echo "")
-
-          if [ "$GIST_CONTENT" = "$HASH" ]; then
+          # Fetch Gist content and check if hash exists in it
+          if gh gist view "$GIST_ID" --raw 2>/dev/null | grep -qF "$HASH"; then
             echo "::notice::[Lint] Validation cache hit (cross-repository Gist cache)"
             echo "cache-hit=true" >> $GITHUB_OUTPUT
           else
