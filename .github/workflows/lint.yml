@@ -63,7 +63,7 @@ jobs:
 
           # Fetch Gist content and check if hash exists in it
           echo "::debug::[Lint] Checking Gist $GIST_ID for hash: $HASH"
-          GIST_CONTENT=$(gh gist view "$GIST_ID" --raw 2>&1)
+          GIST_CONTENT=$(gh gist view "$GIST_ID" --raw 2>&1 || true)
           echo "::debug::[Lint] Gist content: $GIST_CONTENT"
 
           if echo "$GIST_CONTENT" | grep -qF "$HASH"; then
