@@ -160,9 +160,20 @@ jobs:
         if: ${{ inputs.tool != 'none' && inputs.test != '' }}
         run: ${{ inputs.tool }} ${{ inputs.test }}
 
-      - name: Install Playwright dependencies
+      - name: Cache Playwright browsers
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
-        run: npx playwright install-deps
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}
+
+      - name: Install Playwright browsers and dependencies
+        if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
+        run: |
+          npx playwright install --with-deps
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
 
       - name: e2e test
         if: ${{ inputs.tool != 'none' && inputs.e2e != '' }}
