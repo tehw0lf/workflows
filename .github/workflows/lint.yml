@@ -49,10 +49,8 @@ jobs:
 
       - name: Check Gist cache for validated hash
         id: gist-cache
-        env:
-          GIST_ID: ${{ env.GIST_CACHE_ID }}
-          GH_TOKEN: ${{ github.token }}
         run: |
+          GIST_ID="${{ env.GIST_CACHE_ID }}"
           HASH="${{ steps.workflow-hash.outputs.hash }}"
 
           if [ -z "$GIST_ID" ]; then
@@ -61,15 +59,14 @@ jobs:
             exit 0
           fi
 
-          # Fetch Gist content and check if hash exists in it
-          GIST_CONTENT=$(gh gist view "$GIST_ID" --raw 2>&1 || true)
-          echo "::notice::[Lint] Gist fetch result: ${GIST_CONTENT:0:100}"
+          # Fetch Gist content via public raw URL (no authentication needed for public gists)
+          GIST_CONTENT=$(curl -fsSL "https://gist.githubusercontent.com/tehw0lf/$GIST_ID/raw" 2>&1 || echo "")
 
           if echo "$GIST_CONTENT" | grep -qF "$HASH"; then
-            echo "::notice::[Lint] Validation cache hit (cross-repository Gist cache)"
+            echo "::notice::[Lint] ✅ Validation cache hit (cross-repository Gist cache)"
             echo "cache-hit=true" >> $GITHUB_OUTPUT
           else
-            echo "::notice::[Lint] Hash not found in Gist cache"
+            echo "::notice::[Lint] Hash not found in Gist cache - will validate workflows"
             echo "cache-hit=false" >> $GITHUB_OUTPUT
           fi
 
