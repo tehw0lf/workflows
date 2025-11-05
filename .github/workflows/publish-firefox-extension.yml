@@ -80,7 +80,7 @@ jobs:
 
       - name: publish firefox extension
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: wdzeng/firefox-addon@v1.0.5
+        uses: wdzeng/firefox-addon@v1.2.0
         with:
           addon-guid: ${{ inputs.addon_guid }}
           xpi-path: ${{ inputs.xpi_path }}
