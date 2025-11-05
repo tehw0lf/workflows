@@ -47,7 +47,6 @@ jobs:
     steps:
       - name: Generate workflow summary
         id: summary
-        shell: invalid-shell
         run: |
           # Function to get status emoji and text
           get_status() {
