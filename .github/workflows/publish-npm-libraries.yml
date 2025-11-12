@@ -5,6 +5,8 @@ on:
     secrets:
       NPM_TOKEN:
         required: false
+      GITHUB_TOKEN:
+        required: false
     inputs:
       root_dir:
         description: "path to project root"
@@ -49,7 +51,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       actions: read
-      contents: read
+      contents: write
       packages: read
     defaults:
       run:
@@ -66,6 +68,9 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: check build artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0
@@ -103,11 +108,25 @@ jobs:
         run: |
           echo "::notice::[NPM] Publishing n8n node"
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Configure git with the commit author's information
+          COMMIT_AUTHOR_NAME="${{ github.event.head_commit.author.name }}"
+          COMMIT_AUTHOR_EMAIL="${{ github.event.head_commit.author.email }}"
+
+          # Fallback to github-actions bot if no author info available
+          if [[ -z "$COMMIT_AUTHOR_NAME" ]]; then
+            COMMIT_AUTHOR_NAME="github-actions[bot]"
+            COMMIT_AUTHOR_EMAIL="github-actions[bot]@users.noreply.github.com"
+          fi
+
+          echo "::notice::[GIT] Configuring git as: $COMMIT_AUTHOR_NAME <$COMMIT_AUTHOR_EMAIL>"
+          git config user.name "$COMMIT_AUTHOR_NAME"
+          git config user.email "$COMMIT_AUTHOR_EMAIL"
+
           n8n-node release
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: publish multiple npm libraries
         if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true' && !startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner))}}
