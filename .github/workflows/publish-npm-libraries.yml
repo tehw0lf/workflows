@@ -90,6 +90,10 @@ jobs:
             ${{ inputs.root_dir }}/yarn.lock
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
+      - name: install @n8n/node-cli
+        if: ${{ inputs.tool == 'npm' && startsWith(github.repository, 'n8n-nodes') }}
+        run: npm install -g @n8n/node-cli
+
       - name: publish multiple npm libraries
         if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true'}}
         run: |
