@@ -142,7 +142,7 @@ jobs:
           LIBRARY_PATH: ${{ inputs.library_path }}
 
       - name: publish single npm library
-        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true'}}
+        if: ${{ env.NPM_TOKEN != '' && inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true' && !startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner))}}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           path_to_package_json=$(find . -name "package.json" | head -n 1)
