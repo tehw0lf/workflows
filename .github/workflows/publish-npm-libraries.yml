@@ -103,6 +103,8 @@ jobs:
         run: |
           echo "::notice::[NPM] Publishing n8n node"
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           n8n-node release
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
