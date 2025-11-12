@@ -109,16 +109,7 @@ jobs:
           echo "::notice::[NPM] Publishing n8n node"
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
 
-          # Configure git with the commit author's information
-          COMMIT_AUTHOR_NAME="${{ github.event.head_commit.author.name }}"
-          COMMIT_AUTHOR_EMAIL="${{ github.event.head_commit.author.email }}"
-
-          # Fallback to github-actions bot if no author info available
-          if [[ -z "$COMMIT_AUTHOR_NAME" ]]; then
-            COMMIT_AUTHOR_NAME="github-actions[bot]"
-            COMMIT_AUTHOR_EMAIL="github-actions[bot]@users.noreply.github.com"
-          fi
-
+          # Configure git with the commit author's information from env (set safely below)
           echo "::notice::[GIT] Configuring git as: $COMMIT_AUTHOR_NAME <$COMMIT_AUTHOR_EMAIL>"
           git config user.name "$COMMIT_AUTHOR_NAME"
           git config user.email "$COMMIT_AUTHOR_EMAIL"
@@ -127,6 +118,8 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_AUTHOR_NAME: ${{ github.event.head_commit.author.name || 'github-actions[bot]' }}
+          COMMIT_AUTHOR_EMAIL: ${{ github.event.head_commit.author.email || 'github-actions[bot]@users.noreply.github.com' }}
 
       - name: publish multiple npm libraries
         if: ${{ env.NPM_TOKEN != '' && inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true' && !startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner))}}
