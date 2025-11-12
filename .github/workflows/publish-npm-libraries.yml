@@ -91,7 +91,7 @@ jobs:
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
       - name: install @n8n/node-cli
-        if: ${{ inputs.tool == 'npm' && startsWith(github.repository, join(github.repository_owner, '/n8n-nodes')) }}
+        if: ${{ inputs.tool == 'npm' && startsWith(github.repository, join([github.repository_owner, '/n8n-nodes'])) }}
         run: npm install -g @n8n/node-cli
 
       - name: publish multiple npm libraries
