@@ -47,17 +47,6 @@ jobs:
       run:
         working-directory: ${{ inputs.root_dir }}
     steps:
-      - name: check required secrets
-        run: |
-          if [[ -z "${{ env.AMO_API_KEY }}" || -z "${{ env.AMO_API_SECRET }}" ]]; then
-            echo "::error::[Firefox] Missing required secrets: AMO_API_KEY and AMO_API_SECRET"
-            echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
-            exit 2
-          fi
-        env:
-          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
-          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
-
       - uses: actions/checkout@v5
 
       - name: check build artifact existence
