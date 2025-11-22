@@ -62,7 +62,7 @@ jobs:
     steps:
       - name: check required secrets
         run: |
-          if [[ -z "$NPM_TOKEN" ]]; then
+          if [[ -z "${{ env.NPM_TOKEN }}" ]]; then
             echo "::error::[NPM] Missing required secret: NPM_TOKEN"
             echo "FAILURE_REASON=missing_secrets" >> $GITHUB_ENV
             exit 2

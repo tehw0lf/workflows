@@ -186,7 +186,6 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       runner: ${{ inputs.runner }}
       app_root: ${{ inputs.app_root }}
-    secrets: inherit
 
   publish_docker_image:
     if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}
@@ -201,7 +200,6 @@ jobs:
       registry: ${{ inputs.registry }}
       docker_namespace: ${{ inputs.docker_namespace }}
       docker_pre: ${{ inputs.docker_pre }}
-    secrets: inherit
 
   publish_npm_libraries:
     if: ${{ github.event_name == 'push' && inputs.library_path != '' }}
@@ -216,7 +214,8 @@ jobs:
       library_path: ${{ inputs.library_path }}
       npm_namespace: ${{ inputs.npm_namespace }}
       n8n_verifiable_node: ${{ inputs.n8n_verifiable_node }}
-    secrets: inherit
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish_python_libraries:
     if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.publish_python_libraries == 'true' }}
@@ -227,7 +226,8 @@ jobs:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
-    secrets: inherit
+    secrets:
+      UV_TOKEN: ${{ secrets.UV_TOKEN }}
 
   publish_firefox_extension:
     if: ${{ github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' }}
@@ -238,7 +238,9 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       addon_guid: ${{ inputs.addon_guid }}
       xpi_path: ${{ inputs.xpi_path }}
-    secrets: inherit
+    secrets:
+      AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+      AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
 
   release_android_apk:
     if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
@@ -250,7 +252,8 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
       release_tag: ${{ inputs.release_tag }}
-    secrets: inherit
+    secrets:
+      ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
 
   release_github:
     if: ${{ github.event_name == 'push' &&  inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
@@ -264,7 +267,6 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       release_pre: ${{ inputs.release_pre }}
       overwrite_release: ${{ inputs.overwrite_release }}
-    secrets: inherit
 
   summarize:
     if: ${{ always() }}
