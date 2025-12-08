@@ -33,7 +33,7 @@ jobs:
           fi
 
       - name: Checkout workflow repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: tehw0lf/workflows
           ref: main

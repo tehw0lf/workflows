@@ -61,7 +61,7 @@ jobs:
       matrix:
         docker: ${{ fromJson(inputs.docker_meta) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: validate docker metadata
         if: ${{ inputs.docker_meta != '' }}
