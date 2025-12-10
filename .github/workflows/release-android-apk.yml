@@ -42,7 +42,7 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: check app artifact existence
         uses: softwareforgood/check-artifact-v4-existence@v0
