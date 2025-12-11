@@ -18,17 +18,28 @@ on:
 jobs:
   build_and_deploy:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      actions: write     # Required for workflow management
+      contents: write    # Required for GitHub releases
+      packages: write    # Required for Docker/GHCR publishing
+      id-token: write    # Required for npm Trusted Publishing (no NPM_TOKEN needed!)
     with:
       tool: npm
       lint: "run lint"
       test: "run test"
       build_main: "run build"
       artifact_path: "dist"
+      event_name: ${{ github.event_name }}
       docker_meta: '[{"name":"my-app","file":"Dockerfile"}]'
       libraries: "lib1,lib2"
       library_path: "packages"
     secrets: inherit
 ```
+
+**Important for npm publishing:**
+- No `NPM_TOKEN` secret required - uses OpenID Connect (OIDC) Trusted Publishing
+- Requires `id-token: write` permission
+- If using `release-it`, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
 
 ## 📋 Available Workflows
 
@@ -80,14 +91,17 @@ Publishes Docker images to container registries.
 
 ### 4. NPM Libraries (`publish-npm-libraries.yml`)
 
-Publishes Node.js libraries to npm registry.
+Publishes Node.js libraries to npm registry using **Trusted Publishing** (Provenance).
 
 **Features:**
+- ✅ **Trusted Publishing**: No NPM_TOKEN required - uses OpenID Connect (OIDC)
 - ✅ Version comparison to prevent duplicate publishes
 - ✅ Multi-library support
 - ✅ Security: Input sanitization and validation
 - ✅ Dry-run validation (catches errors before publish)
 - ✅ Timeout protection (20 minutes)
+
+**Important:** Requires `id-token: write` permission instead of NPM_TOKEN secret
 
 ### 5. Python Libraries (`publish-python-libraries.yml`)
 
@@ -141,7 +155,7 @@ Aggregates and reports results from all publishing workflows.
 
 ## 🔧 Setup Instructions
 
-### 1. Required Secrets
+### 1. Required Secrets & Permissions
 
 Add these secrets to your repository settings:
 
@@ -149,8 +163,9 @@ Add these secrets to your repository settings:
 # For Docker publishing
 GITHUB_TOKEN: # Auto-provided by GitHub
 
-# For npm publishing
-NPM_TOKEN: # Your npm access token
+# For npm publishing - NO NPM_TOKEN NEEDED!
+# Uses Trusted Publishing (Provenance) with OIDC
+# Requires: id-token: write permission
 
 # For Python publishing
 UV_TOKEN: # Your PyPI token
@@ -166,9 +181,55 @@ ANDROID_STOREPASS: # Android keystore password
 NX_CLOUD_ACCESS_TOKEN: # Nx Cloud access token
 ```
 
-### 2. Project Structure Examples
+#### Required Permissions for npm Trusted Publishing
 
-#### Node.js Project
+When publishing to npm, you must grant the `id-token: write` permission in your workflow:
+
+```yaml
+jobs:
+  build_and_deploy:
+    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      id-token: write  # Required for npm Trusted Publishing
+      contents: read
+    with:
+      tool: npm
+      # ... other inputs
+```
+
+### 2. Release-it Configuration for npm Publishing
+
+When using `release-it` with Trusted Publishing, you need to configure it to skip npm's built-in checks since the workflow handles authentication via OIDC.
+
+Create a `.release-it.json` file in your project root:
+
+```json
+{
+  "npm": {
+    "skipChecks": true
+  }
+}
+```
+
+**Why is this needed?**
+- Release-it normally checks for npm authentication before publishing
+- With Trusted Publishing, authentication happens automatically via GitHub's OIDC token
+- `skipChecks: true` tells release-it to trust the workflow's authentication
+
+### 3. Project Structure Examples
+
+#### Node.js Project with npm Publishing
+```
+project/
+├── package.json
+├── .release-it.json     # Required for release-it + Trusted Publishing
+├── src/
+├── dist/
+├── Dockerfile (optional)
+└── .github/workflows/ci.yml
+```
+
+#### Node.js Project (without release-it)
 ```
 project/
 ├── package.json
@@ -247,21 +308,44 @@ project/
 
 ## 📊 Usage Examples
 
-### Simple Node.js App
+### Simple Node.js App (with npm Publishing)
 ```yaml
-uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
-with:
-  tool: npm
-  lint: "run lint"
-  test: "run test"
-  build_main: "run build"
-  artifact_path: "dist"
-  event_name: ${{ github.event_name }}
+name: build and publish pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: external workflow
+    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      actions: write     # Required for workflow management
+      contents: write    # Required for GitHub releases
+      packages: write    # Required for Docker/GHCR publishing
+      id-token: write    # Required for npm Trusted Publishing
+    with:
+      tool: npm
+      lint: "run lint"
+      test: "run test"
+      build_main: "run build"
+      artifact_path: "dist"
+      library_path: "dist"
+      event_name: ${{ github.event_name }}
 ```
+
+**Note:** This example follows the pattern from `/Coding/AI/n8n/nodes/toon` which uses Trusted Publishing for npm.
 
 ### Docker + npm Publishing
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+permissions:
+  id-token: write    # Required for npm Trusted Publishing
+  contents: read
+  packages: write    # Required for Docker publishing to GHCR
 with:
   tool: npm
   build_main: "run build"
@@ -327,6 +411,31 @@ graph TD
 2. **Cache misses**: Check cache key patterns and dependencies
 3. **Permission errors**: Verify repository secrets and permissions
 4. **Artifact not found**: Ensure `artifact_path` is correctly set
+
+### npm Trusted Publishing Issues
+
+#### Error: "npm ERR! need auth This command requires you to be logged in"
+**Solution:** Ensure `id-token: write` permission is set in your workflow:
+```yaml
+permissions:
+  id-token: write
+```
+
+#### Error: "release-it: npm authentication check failed"
+**Solution:** Add `.release-it.json` to skip npm checks when using Trusted Publishing:
+```json
+{
+  "npm": {
+    "skipChecks": true
+  }
+}
+```
+
+#### Error: "Unable to get OIDC token"
+**Solution:**
+- Verify `id-token: write` permission is granted
+- Ensure your npm package is configured for [Trusted Publishing on npmjs.com](https://docs.npmjs.com/generating-provenance-statements)
+- Check that your GitHub repository has access to npm's OIDC provider
 
 ### Debug Mode
 
