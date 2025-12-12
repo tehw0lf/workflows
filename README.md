@@ -22,7 +22,7 @@ jobs:
       actions: write     # Required for workflow management
       contents: write    # Required for GitHub releases
       packages: write    # Required for Docker/GHCR publishing
-      id-token: write    # Required for npm Trusted Publishing (no NPM_TOKEN needed!)
+      id-token: write    # REQUIRED - Always needed (currently for npm Trusted Publishing, planned for future OIDC integrations)
     with:
       tool: npm
       lint: "run lint"
@@ -36,10 +36,10 @@ jobs:
     secrets: inherit
 ```
 
-**Important for npm publishing:**
-- No `NPM_TOKEN` secret required - uses OpenID Connect (OIDC) Trusted Publishing
-- Requires `id-token: write` permission
-- If using `release-it`, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
+**Important permissions:**
+- **`id-token: write` is REQUIRED for all workflows** - Currently used for npm Trusted Publishing (no NPM_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
+- Due to GitHub Actions limitations, this permission must be set at the top-level calling workflow, regardless of which publishing workflows you use
+- If using `release-it` for npm, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
 
 ## 📋 Available Workflows
 
@@ -157,7 +157,33 @@ Aggregates and reports results from all publishing workflows.
 
 ### 1. Required Secrets & Permissions
 
-Add these secrets to your repository settings:
+#### Required Permissions (ALL WORKFLOWS)
+
+**IMPORTANT:** The `id-token: write` permission is **REQUIRED for all workflows**, regardless of which publishing targets you use:
+
+```yaml
+jobs:
+  build_and_deploy:
+    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      id-token: write    # REQUIRED - Always needed for OIDC (npm Trusted Publishing + future integrations)
+      actions: write     # Required for workflow management
+      contents: write    # Required for GitHub releases
+      packages: write    # Required for Docker/GHCR publishing
+    with:
+      tool: npm
+      # ... other inputs
+```
+
+**Why is `id-token: write` always required?**
+- Currently used for npm Trusted Publishing (no NPM_TOKEN needed!)
+- Planned for future OIDC integrations with other publishing targets (PyPI, Docker registries, etc.)
+- Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
+- Must be set at the top-level calling workflow, even if you're not publishing to npm
+
+#### Required Secrets
+
+Add these secrets to your repository settings based on your publishing targets:
 
 ```yaml
 # For Docker publishing
@@ -165,10 +191,10 @@ GITHUB_TOKEN: # Auto-provided by GitHub
 
 # For npm publishing - NO NPM_TOKEN NEEDED!
 # Uses Trusted Publishing (Provenance) with OIDC
-# Requires: id-token: write permission
+# Requires: id-token: write permission (see above)
 
 # For Python publishing
-UV_TOKEN: # Your PyPI token
+UV_TOKEN: # Your PyPI token (will migrate to OIDC in future)
 
 # For Firefox extensions
 AMO_API_KEY: # Mozilla Add-ons API key
@@ -179,22 +205,6 @@ ANDROID_STOREPASS: # Android keystore password
 
 # For Nx Cloud (optional)
 NX_CLOUD_ACCESS_TOKEN: # Nx Cloud access token
-```
-
-#### Required Permissions for npm Trusted Publishing
-
-When publishing to npm, you must grant the `id-token: write` permission in your workflow:
-
-```yaml
-jobs:
-  build_and_deploy:
-    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
-    permissions:
-      id-token: write  # Required for npm Trusted Publishing
-      contents: read
-    with:
-      tool: npm
-      # ... other inputs
 ```
 
 ### 2. Release-it Configuration for npm Publishing
@@ -323,10 +333,10 @@ jobs:
     name: external workflow
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
+      id-token: write    # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
       actions: write     # Required for workflow management
       contents: write    # Required for GitHub releases
       packages: write    # Required for Docker/GHCR publishing
-      id-token: write    # Required for npm Trusted Publishing
     with:
       tool: npm
       lint: "run lint"
@@ -343,7 +353,7 @@ jobs:
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
-  id-token: write    # Required for npm Trusted Publishing
+  id-token: write    # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
   contents: read
   packages: write    # Required for Docker publishing to GHCR
 with:
@@ -359,6 +369,9 @@ with:
 ### Python Package
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+permissions:
+  id-token: write    # REQUIRED - Always needed (future OIDC for PyPI)
+  contents: read
 with:
   tool: uv
   install: "sync"
@@ -372,6 +385,9 @@ with:
 ### Bash Scripts
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+permissions:
+  id-token: write    # REQUIRED - Always needed
+  contents: read
 with:
   tool: bash
   install: "install.sh"

@@ -48,8 +48,8 @@ Core workflow that:
 ### Publishing Workflows
 Each specialized for different targets:
 - **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
-- **npm**: Version comparison, multi-library support, input sanitization, dry-run validation
-- **Python**: UV-based publishing to PyPI with explicit artifact validation
+- **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**
+- **Python**: UV-based publishing to PyPI with explicit artifact validation (currently uses UV_TOKEN, planned OIDC migration)
 - **Firefox**: XPI packaging and AMO publishing
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
@@ -134,6 +134,29 @@ This dramatically reduces validation overhead while maintaining safety guarantee
 - Optimized timeouts prevent runaway builds (5-60 minutes depending on complexity)
 - Minimal permissions principle applied to all jobs
 
+### Required Permissions for Calling Workflows
+**IMPORTANT:** All calling workflows **MUST** include the `id-token: write` permission, regardless of which publishing targets they use:
+
+```yaml
+jobs:
+  build_and_deploy:
+    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      id-token: write    # REQUIRED - Always needed for OIDC (npm Trusted Publishing + future integrations)
+      actions: write     # Required for workflow management
+      contents: write    # Required for GitHub releases
+      packages: write    # Required for Docker/GHCR publishing
+    with:
+      # ... inputs
+```
+
+**Why is `id-token: write` always required?**
+- Currently used for npm Trusted Publishing (eliminates need for NPM_TOKEN secret)
+- Planned for future OIDC integrations with other publishing targets (PyPI, Docker registries, etc.)
+- Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
+- Must be set at the top-level calling workflow, even if not publishing to npm
+- Cannot be controlled with `if` conditions - permissions are evaluated before job execution
+
 ### Workflow Input Patterns
 Key input parameters across workflows:
 - `tool`: Determines build system (npm, yarn, uv, ./gradlew, mvn, bash)
@@ -186,7 +209,7 @@ The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
 - Ensures security patches are applied promptly
 - Reduces manual maintenance burden
 
-### Recent Optimizations (Phase 1-3)
+### Recent Optimizations (Phase 1-4)
 Key improvements made to the workflow suite:
 1. **Artifact clarity**: Added descriptive suffixes to artifact uploads
 2. **Output cleanup**: Removed unused workflow outputs
@@ -195,6 +218,7 @@ Key improvements made to the workflow suite:
 5. **Playwright support**: Extended config detection to .ts, .js, and .mjs variants
 6. **Code reduction**: Refactored summary workflow (67% line reduction)
 7. **Automation**: Added Dependabot for weekly action updates
+8. **OIDC Integration**: Migrated npm publishing to Trusted Publishing (eliminates NPM_TOKEN secret requirement)
 
 ### Known Correct Patterns (Do Not Change)
 These patterns are intentionally designed and verified as correct:
