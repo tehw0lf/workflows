@@ -49,7 +49,7 @@ Core workflow that:
 Each specialized for different targets:
 - **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
 - **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**
-- **Python**: UV-based publishing to PyPI with explicit artifact validation (currently uses UV_TOKEN, planned OIDC migration)
+- **Python**: UV-based publishing to PyPI with explicit artifact validation, **uses OIDC Trusted Publishing (no UV_TOKEN required)**
 - **Firefox**: XPI packaging and AMO publishing
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
@@ -151,10 +151,10 @@ jobs:
 ```
 
 **Why is `id-token: write` always required?**
-- Currently used for npm Trusted Publishing (eliminates need for NPM_TOKEN secret)
-- Planned for future OIDC integrations with other publishing targets (PyPI, Docker registries, etc.)
+- Currently used for npm and Python Trusted Publishing (eliminates need for NPM_TOKEN and UV_TOKEN secrets)
+- Planned for future OIDC integrations with other publishing targets (Docker registries, etc.)
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
-- Must be set at the top-level calling workflow, even if not publishing to npm
+- Must be set at the top-level calling workflow, even if not publishing to npm or PyPI
 - Cannot be controlled with `if` conditions - permissions are evaluated before job execution
 
 ### Workflow Input Patterns
@@ -209,7 +209,7 @@ The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
 - Ensures security patches are applied promptly
 - Reduces manual maintenance burden
 
-### Recent Optimizations (Phase 1-4)
+### Recent Optimizations (Phase 1-5)
 Key improvements made to the workflow suite:
 1. **Artifact clarity**: Added descriptive suffixes to artifact uploads
 2. **Output cleanup**: Removed unused workflow outputs
@@ -218,7 +218,7 @@ Key improvements made to the workflow suite:
 5. **Playwright support**: Extended config detection to .ts, .js, and .mjs variants
 6. **Code reduction**: Refactored summary workflow (67% line reduction)
 7. **Automation**: Added Dependabot for weekly action updates
-8. **OIDC Integration**: Migrated npm publishing to Trusted Publishing (eliminates NPM_TOKEN secret requirement)
+8. **OIDC Integration**: Migrated npm and Python publishing to Trusted Publishing (eliminates NPM_TOKEN and UV_TOKEN secret requirements)
 
 ### Known Correct Patterns (Do Not Change)
 These patterns are intentionally designed and verified as correct:

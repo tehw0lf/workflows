@@ -37,7 +37,7 @@ jobs:
 ```
 
 **Important permissions:**
-- **`id-token: write` is REQUIRED for all workflows** - Currently used for npm Trusted Publishing (no NPM_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
+- **`id-token: write` is REQUIRED for all workflows** - Currently used for npm and Python Trusted Publishing (no NPM_TOKEN or UV_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
 - Due to GitHub Actions limitations, this permission must be set at the top-level calling workflow, regardless of which publishing workflows you use
 - If using `release-it` for npm, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
 
@@ -105,13 +105,16 @@ Publishes Node.js libraries to npm registry using **Trusted Publishing** (Proven
 
 ### 5. Python Libraries (`publish-python-libraries.yml`)
 
-Publishes Python packages to PyPI using `uv`.
+Publishes Python packages to PyPI using `uv` and **Trusted Publishing** (Provenance).
 
 **Features:**
+- ✅ **Trusted Publishing**: No UV_TOKEN required - uses OpenID Connect (OIDC)
 - ✅ UV package manager support
 - ✅ Automatic dependency management
 - ✅ Explicit artifact validation with clear error messages
 - ✅ Timeout protection (15 minutes)
+
+**Important:** Requires `id-token: write` permission instead of UV_TOKEN secret
 
 ### 6. Firefox Extension (`publish-firefox-extension.yml`)
 
@@ -166,7 +169,7 @@ jobs:
   build_and_deploy:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
-      id-token: write    # REQUIRED - Always needed for OIDC (npm Trusted Publishing + future integrations)
+      id-token: write    # REQUIRED - Always needed for OIDC (npm/Python Trusted Publishing + future integrations)
       actions: write     # Required for workflow management
       contents: write    # Required for GitHub releases
       packages: write    # Required for Docker/GHCR publishing
@@ -176,10 +179,10 @@ jobs:
 ```
 
 **Why is `id-token: write` always required?**
-- Currently used for npm Trusted Publishing (no NPM_TOKEN needed!)
-- Planned for future OIDC integrations with other publishing targets (PyPI, Docker registries, etc.)
+- Currently used for npm and Python Trusted Publishing (no NPM_TOKEN or UV_TOKEN needed!)
+- Planned for future OIDC integrations with other publishing targets (Docker registries, etc.)
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
-- Must be set at the top-level calling workflow, even if you're not publishing to npm
+- Must be set at the top-level calling workflow, even if you're not publishing to npm or PyPI
 
 #### Required Secrets
 
@@ -193,8 +196,9 @@ GITHUB_TOKEN: # Auto-provided by GitHub
 # Uses Trusted Publishing (Provenance) with OIDC
 # Requires: id-token: write permission (see above)
 
-# For Python publishing
-UV_TOKEN: # Your PyPI token (will migrate to OIDC in future)
+# For Python publishing - NO UV_TOKEN NEEDED!
+# Uses Trusted Publishing (Provenance) with OIDC
+# Requires: id-token: write permission (see above)
 
 # For Firefox extensions
 AMO_API_KEY: # Mozilla Add-ons API key
@@ -370,7 +374,7 @@ with:
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
-  id-token: write    # REQUIRED - Always needed (future OIDC for PyPI)
+  id-token: write    # REQUIRED - Always needed (Python Trusted Publishing)
   contents: read
 with:
   tool: uv
