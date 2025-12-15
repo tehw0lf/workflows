@@ -84,7 +84,7 @@ jobs:
 
       - name: download build artifact
         if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build
           path: ${{ inputs.artifact_path }}
