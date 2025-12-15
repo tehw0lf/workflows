@@ -87,7 +87,7 @@ jobs:
           fetch-depth: 0
 
       - name: cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.npm
@@ -163,7 +163,7 @@ jobs:
       - name: Cache Playwright browsers
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}
