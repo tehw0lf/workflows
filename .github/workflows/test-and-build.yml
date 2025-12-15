@@ -193,14 +193,14 @@ jobs:
 
       - name: upload build artifact (from artifact_path)
         if: ${{ github.event_name == 'push' && inputs.artifact_path != '' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: build
           path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
       - name: upload app artifact (from app_root)
         if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: app
           path: ${{ inputs.app_root }}
