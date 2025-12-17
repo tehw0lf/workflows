@@ -52,7 +52,7 @@ jobs:
 
       - name: download app artifact
         if: ${{ inputs.app_root != '' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: app
           path: ${{ inputs.app_root }}
@@ -65,7 +65,7 @@ jobs:
 
       - name: download build artifact
         if: ${{ inputs.artifact_path != '' && steps.check_build_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build
           path: ${{ inputs.artifact_path }}
