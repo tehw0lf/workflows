@@ -79,7 +79,7 @@ jobs:
       - uses: actions/setup-node@v6
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
-          node-version: "20"
+          node-version: "24.12.0"
           registry-url: "https://registry.npmjs.org"
           cache: "${{ inputs.tool }}"
           cache-dependency-path: |
