@@ -161,12 +161,45 @@ on:
         default: "false"
         required: false
         type: string
+      enable_security_scanning:
+        description: "enable dual-layer security scanning (source + artifacts)"
+        default: "true"
+        required: false
+        type: string
+      semgrep_rules:
+        description: "semgrep ruleset (auto, p/security-audit, p/owasp-top-ten, p/ci, etc.)"
+        default: "auto"
+        required: false
+        type: string
+      trivy_severity:
+        description: "minimum severity level for trivy (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
+        default: "MEDIUM,HIGH,CRITICAL"
+        required: false
+        type: string
+      trivy_exit_code:
+        description: "exit code when vulnerabilities are found (0=continue, 1=fail)"
+        default: "1"
+        required: false
+        type: string
 
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
-  test_and_build:
+  security_scan_source:
+    if: ${{ inputs.enable_security_scanning == 'true' }}
     needs: lint
+    uses: ./.github/workflows/security-scan-source.yml
+    with:
+      root_dir: ${{ inputs.root_dir }}
+      tool: ${{ inputs.tool }}
+      runner: ${{ inputs.runner }}
+      semgrep_rules: ${{ inputs.semgrep_rules }}
+  test_and_build:
+    needs: [lint, security_scan_source]
+    if: |
+      always() &&
+      needs.lint.result == 'success' &&
+      (needs.security_scan_source.result == 'success' || needs.security_scan_source.result == 'skipped')
     uses: ./.github/workflows/test-and-build.yml
     with:
       root_dir: ${{ inputs.root_dir }}
@@ -183,9 +216,22 @@ jobs:
       runner: ${{ inputs.runner }}
       app_root: ${{ inputs.app_root }}
 
+  security_scan_artifacts:
+    if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' }}
+    needs: test_and_build
+    uses: ./.github/workflows/security-scan-artifacts.yml
+    with:
+      root_dir: ${{ inputs.root_dir }}
+      tool: ${{ inputs.tool }}
+      artifact_path: ${{ inputs.artifact_path }}
+      docker_meta: ${{ inputs.docker_meta }}
+      runner: ${{ inputs.runner }}
+      trivy_severity: ${{ inputs.trivy_severity }}
+      trivy_exit_code: ${{ inputs.trivy_exit_code }}
+
   publish_docker_image:
     if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}
-    needs: test_and_build
+    needs: [test_and_build, security_scan_artifacts]
     uses: ./.github/workflows/publish-docker-image.yml
     with:
       root_dir: ${{ inputs.root_dir }}
@@ -199,7 +245,7 @@ jobs:
 
   publish_npm_libraries:
     if: ${{ github.event_name == 'push' && inputs.library_path != '' }}
-    needs: test_and_build
+    needs: [test_and_build, security_scan_artifacts]
     uses: ./.github/workflows/publish-npm-libraries.yml
     with:
       root_dir: ${{ inputs.root_dir }}
@@ -213,7 +259,7 @@ jobs:
 
   publish_python_libraries:
     if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.publish_python_libraries == 'true' }}
-    needs: test_and_build
+    needs: [test_and_build, security_scan_artifacts]
     uses: ./.github/workflows/publish-python-libraries.yml
     with:
       root_dir: ${{ inputs.root_dir }}
@@ -223,7 +269,7 @@ jobs:
 
   publish_firefox_extension:
     if: ${{ github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' }}
-    needs: test_and_build
+    needs: [test_and_build, security_scan_artifacts]
     uses: ./.github/workflows/publish-firefox-extension.yml
     with:
       runner: ${{ inputs.runner }}
@@ -236,7 +282,7 @@ jobs:
 
   release_android_apk:
     if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
-    needs: test_and_build
+    needs: [test_and_build, security_scan_artifacts]
     uses: ./.github/workflows/release-android-apk.yml
     with:
       runner: ${{ inputs.runner }}
@@ -249,7 +295,7 @@ jobs:
 
   release_github:
     if: ${{ github.event_name == 'push' &&  inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
-    needs: test_and_build
+    needs: [test_and_build, security_scan_artifacts]
     uses: ./.github/workflows/release-github.yml
     with:
       runner: ${{ inputs.runner }}
@@ -265,6 +311,8 @@ jobs:
     needs:
       [
         test_and_build,
+        security_scan_source,
+        security_scan_artifacts,
         publish_docker_image,
         publish_npm_libraries,
         publish_python_libraries,
@@ -275,6 +323,8 @@ jobs:
     uses: ./.github/workflows/summarize-workflow.yml
     with:
       test_and_build_result: ${{ needs.test_and_build.result }}
+      security_scan_source_result: ${{ needs.security_scan_source.result }}
+      security_scan_artifacts_result: ${{ needs.security_scan_artifacts.result }}
       publish_docker_image_result: ${{ needs.publish_docker_image.result }}
       publish_npm_libraries_result: ${{ needs.publish_npm_libraries.result }}
       publish_python_libraries_result: ${{ needs.publish_python_libraries.result }}

@@ -1,0 +1,177 @@
+name: security scan artifacts
+
+on:
+  workflow_call:
+    inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
+      tool:
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv || bash"
+        default: "none"
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to scan"
+        default: ""
+        required: false
+        type: string
+      docker_meta:
+        description: "docker metadata as json array ([{'name':'docker-image-name','file':'docker/app/Dockerfile'}])"
+        default: ""
+        required: false
+        type: string
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      trivy_severity:
+        description: "minimum severity level for trivy (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
+        default: "MEDIUM,HIGH,CRITICAL"
+        required: false
+        type: string
+      trivy_exit_code:
+        description: "exit code when vulnerabilities are found (0=continue, 1=fail)"
+        default: "1"
+        required: false
+        type: string
+    outputs:
+      trivy_fs_result:
+        description: "trivy filesystem scan result"
+        value: ${{ jobs.scan_artifacts.outputs.trivy_fs_result }}
+      trivy_image_result:
+        description: "trivy image scan result"
+        value: ${{ jobs.scan_artifacts.outputs.trivy_image_result }}
+      grype_result:
+        description: "grype scan result"
+        value: ${{ jobs.scan_artifacts.outputs.grype_result }}
+
+jobs:
+  scan_artifacts:
+    name: scan build artifacts
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    outputs:
+      trivy_fs_result: ${{ steps.trivy-fs.outcome }}
+      trivy_image_result: ${{ steps.trivy-image.outcome }}
+      grype_result: ${{ steps.grype.outcome }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Check if build artifacts exist
+      - name: check if build artifact exists
+        if: ${{ inputs.artifact_path != '' }}
+        id: check-artifact
+        uses: softwareforgood/check-artifact-v4-existence@v0
+        with:
+          name: build
+
+      # Download build artifacts for scanning
+      - name: download build artifact
+        if: ${{ steps.check-artifact.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v7
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      # Layer 2a: Trivy filesystem scan (packages, dependencies, configs)
+      - name: trivy filesystem scan
+        id: trivy-fs
+        if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'fs'
+          scan-ref: '${{ inputs.artifact_path }}'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: '${{ inputs.trivy_severity }}'
+          exit-code: '${{ inputs.trivy_exit_code }}'
+        continue-on-error: false
+
+      - name: upload trivy fs SARIF
+        if: always() && steps.trivy-fs.outcome != 'skipped'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+          category: 'trivy-filesystem'
+        continue-on-error: true
+
+      # Layer 2b: Trivy image scan (Docker images if applicable)
+      - name: extract docker image names
+        id: docker-images
+        if: ${{ inputs.docker_meta != '' }}
+        run: |
+          echo "images<<EOF" >> $GITHUB_OUTPUT
+          echo '${{ inputs.docker_meta }}' | jq -r '.[].name' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: trivy image scan
+        id: trivy-image
+        if: ${{ inputs.docker_meta != '' && steps.docker-images.outputs.images != '' }}
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'image'
+          image-ref: '${{ steps.docker-images.outputs.images }}'
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: '${{ inputs.trivy_severity }}'
+          exit-code: '${{ inputs.trivy_exit_code }}'
+        continue-on-error: false
+
+      - name: upload trivy image SARIF
+        if: always() && steps.trivy-image.outcome != 'skipped'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+          category: 'trivy-image'
+        continue-on-error: true
+
+      # Layer 2c: Grype scan (alternative/backup scanner)
+      - name: grype filesystem scan
+        id: grype
+        if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
+        uses: anchore/scan-action@v5
+        with:
+          path: '${{ inputs.artifact_path }}'
+          fail-build: true
+          severity-cutoff: medium
+          output-format: sarif
+        continue-on-error: false
+
+      - name: upload grype SARIF
+        if: always() && steps.grype.outcome != 'skipped'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+          category: 'grype'
+        continue-on-error: true
+
+      # Summary table generation
+      - name: generate trivy report table
+        if: always() && steps.trivy-fs.outcome != 'skipped'
+        run: |
+          echo "### 🔍 Trivy Filesystem Scan Results" >> $GITHUB_STEP_SUMMARY
+          trivy fs --format table --severity ${{ inputs.trivy_severity }} ${{ inputs.artifact_path }} >> $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+
+      - name: upload security scan reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: security-scan-artifact-reports
+          path: |
+            trivy-fs-results.sarif
+            trivy-image-results.sarif
+            ${{ steps.grype.outputs.sarif }}
+          if-no-files-found: ignore

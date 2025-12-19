@@ -1,0 +1,137 @@
+name: security scan source
+
+on:
+  workflow_call:
+    inputs:
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
+      tool:
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv || bash"
+        default: "none"
+        required: false
+        type: string
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      semgrep_rules:
+        description: "semgrep ruleset (auto, p/security-audit, p/owasp-top-ten, p/ci, etc.)"
+        default: "auto"
+        required: false
+        type: string
+    outputs:
+      semgrep_result:
+        description: "semgrep scan result"
+        value: ${{ jobs.scan_source.outputs.semgrep_result }}
+      bandit_result:
+        description: "bandit scan result"
+        value: ${{ jobs.scan_source.outputs.bandit_result }}
+      npm_audit_result:
+        description: "npm audit result"
+        value: ${{ jobs.scan_source.outputs.npm_audit_result }}
+      pip_audit_result:
+        description: "pip-audit result"
+        value: ${{ jobs.scan_source.outputs.pip_audit_result }}
+
+jobs:
+  scan_source:
+    name: scan source code and dependencies
+    runs-on: ${{ inputs.runner }}
+    container:
+      image: semgrep/semgrep
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    outputs:
+      semgrep_result: ${{ steps.semgrep.outcome }}
+      bandit_result: ${{ steps.bandit.outcome }}
+      npm_audit_result: ${{ steps.npm-audit.outcome }}
+      pip_audit_result: ${{ steps.pip-audit.outcome }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Layer 1a: Semgrep SAST (all languages)
+      - name: semgrep security scan
+        id: semgrep
+        run: semgrep ci --config=${{ inputs.semgrep_rules }} --sarif > semgrep.sarif
+        continue-on-error: false
+
+      - name: upload semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+      # Layer 1b: Python-specific scanning
+      - name: setup python for python scanning
+        if: ${{ inputs.tool == 'uv' }}
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "${{ inputs.root_dir }}/pyproject.toml"
+
+      - name: install bandit
+        if: ${{ inputs.tool == 'uv' }}
+        run: pip install bandit[toml]
+
+      - name: bandit python SAST
+        id: bandit
+        if: ${{ inputs.tool == 'uv' }}
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . --exit-zero --severity-level medium
+        continue-on-error: false
+
+      - name: install pip-audit
+        if: ${{ inputs.tool == 'uv' }}
+        run: pip install pip-audit
+
+      - name: pip-audit dependency scan
+        id: pip-audit
+        if: ${{ inputs.tool == 'uv' }}
+        run: pip-audit --require-hashes --disable-pip
+        continue-on-error: false
+
+      # Layer 1c: Node.js-specific scanning
+      - name: setup node for npm scanning
+        if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.12.0"
+          cache: "${{ inputs.tool }}"
+          cache-dependency-path: |
+            ${{ inputs.root_dir }}/package-lock.json
+            ${{ inputs.root_dir }}/yarn.lock
+
+      - name: npm audit
+        id: npm-audit
+        if: ${{ inputs.tool == 'npm' }}
+        run: npm audit --audit-level=moderate
+        continue-on-error: false
+
+      - name: yarn audit
+        id: yarn-audit
+        if: ${{ inputs.tool == 'yarn' }}
+        run: yarn audit --level moderate
+        continue-on-error: false
+
+      - name: upload security scan reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: security-scan-source-reports
+          path: |
+            ${{ inputs.root_dir }}/bandit-report.json
+            ${{ inputs.root_dir }}/semgrep.sarif
+          if-no-files-found: ignore

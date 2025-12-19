@@ -19,10 +19,11 @@ jobs:
   build_and_deploy:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
-      actions: write     # Required for workflow management
-      contents: write    # Required for GitHub releases
-      packages: write    # Required for Docker/GHCR publishing
-      id-token: write    # REQUIRED - Always needed (currently for npm Trusted Publishing, planned for future OIDC integrations)
+      actions: write        # Required for workflow management
+      contents: write       # Required for GitHub releases
+      packages: write       # Required for Docker/GHCR publishing
+      security-events: write # Required for security scanning (SARIF uploads)
+      id-token: write       # REQUIRED - Always needed (currently for npm Trusted Publishing, planned for future OIDC integrations)
     with:
       tool: npm
       lint: "run lint"
@@ -38,7 +39,8 @@ jobs:
 
 **Important permissions:**
 - **`id-token: write` is REQUIRED for all workflows** - Currently used for npm and Python Trusted Publishing (no NPM_TOKEN or UV_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
-- Due to GitHub Actions limitations, this permission must be set at the top-level calling workflow, regardless of which publishing workflows you use
+- **`security-events: write` is REQUIRED** - Enables SARIF uploads to GitHub Security tab for centralized vulnerability tracking
+- Due to GitHub Actions limitations, these permissions must be set at the top-level calling workflow, regardless of which publishing workflows you use
 - If using `release-it` for npm, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
 
 ## 📋 Available Workflows
@@ -49,6 +51,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Key Features:**
 - ✅ Multi-language support (Node.js, Python, Java, Gradle, Bash)
+- ✅ **Dual-layer security scanning** (pre-build source + post-build artifacts)
 - ✅ Automated testing and building
 - ✅ Multi-platform publishing (Docker, npm, PyPI, Firefox, Android)
 - ✅ Conditional deployment based on branch and inputs
@@ -64,6 +67,10 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 - `artifact_path`: Path to build artifacts
 - `docker_meta`: Docker metadata JSON
 - `libraries`: Comma-separated list of libraries to publish
+- `enable_security_scanning`: Enable/disable security scanning (default: "true")
+- `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
+- `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
+- `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
 - And many more...
 
 ### 2. Test and Build (`test-and-build.yml`)
@@ -156,6 +163,57 @@ Aggregates and reports results from all publishing workflows.
 - ✅ Refactored from 90 lines to 30 lines (67% reduction) using helper functions
 - ✅ Quick timeout (5 minutes)
 
+### 10. Security Scan Source (`security-scan-source.yml`)
+
+**Pre-build security layer** that scans source code and dependencies before building.
+
+**Features:**
+- ✅ **Semgrep SAST**: Fast static analysis for all languages (configurable rulesets)
+- ✅ **Bandit**: Python-specific source code security analysis
+- ✅ **pip-audit**: Python dependency vulnerability scanning (official PyPA tool)
+- ✅ **npm/yarn audit**: Node.js dependency vulnerability scanning
+- ✅ **SARIF uploads**: Results appear in GitHub Security tab
+- ✅ **Fail-fast**: Prevents building vulnerable code
+- ✅ Timeout protection (15 minutes)
+
+**Configuration:**
+```yaml
+with:
+  enable_security_scanning: "true"  # Enable/disable (default: enabled)
+  semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
+```
+
+**All tools are 100% free and open source:**
+- ✅ No signup required, no usage limits
+- ✅ Industry-standard tools used by major projects
+- ✅ Active maintenance and community support
+
+### 11. Security Scan Artifacts (`security-scan-artifacts.yml`)
+
+**Post-build security layer** that scans build artifacts before publishing.
+
+**Features:**
+- ✅ **Trivy**: Comprehensive scanner for containers, packages, filesystems
+- ✅ **Grype**: Alternative vulnerability scanner for redundancy
+- ✅ **Docker image scanning**: When `docker_meta` is provided
+- ✅ **Filesystem scanning**: Scans artifacts from `artifact_path`
+- ✅ **Security summary tables**: Visual vulnerability reports in workflow output
+- ✅ **Final security gate**: Blocks publishing of vulnerable artifacts
+- ✅ Timeout protection (20 minutes)
+
+**Configuration:**
+```yaml
+with:
+  trivy_severity: "MEDIUM,HIGH,CRITICAL"  # Severity threshold
+  trivy_exit_code: "1"                     # 0=warn only, 1=fail build
+```
+
+**Defense-in-depth architecture:**
+1. **Pre-build** (security-scan-source.yml): Scan code & dependencies → Prevent vulnerable builds
+2. **Build** (test-and-build.yml): Create artifacts
+3. **Post-build** (security-scan-artifacts.yml): Scan artifacts → Block vulnerable publishes
+4. **Publish**: Only if both security layers pass ✅
+
 ## 🔧 Setup Instructions
 
 ### 1. Required Secrets & Permissions
@@ -169,20 +227,29 @@ jobs:
   build_and_deploy:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
-      id-token: write    # REQUIRED - Always needed for OIDC (npm/Python Trusted Publishing + future integrations)
-      actions: write     # Required for workflow management
-      contents: write    # Required for GitHub releases
-      packages: write    # Required for Docker/GHCR publishing
+      id-token: write       # REQUIRED - Always needed for OIDC (npm/Python Trusted Publishing + future integrations)
+      actions: write        # Required for workflow management
+      contents: write       # Required for GitHub releases
+      packages: write       # Required for Docker/GHCR publishing
+      security-events: write # REQUIRED - For security scanning SARIF uploads
     with:
       tool: npm
       # ... other inputs
 ```
 
-**Why is `id-token: write` always required?**
+**Why are these permissions always required?**
+
+**`id-token: write`:**
 - Currently used for npm and Python Trusted Publishing (no NPM_TOKEN or UV_TOKEN needed!)
 - Planned for future OIDC integrations with other publishing targets (Docker registries, etc.)
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
 - Must be set at the top-level calling workflow, even if you're not publishing to npm or PyPI
+
+**`security-events: write`:**
+- Required for uploading SARIF reports to GitHub Security tab
+- Enables centralized security vulnerability tracking across repositories
+- Provides detailed security findings for Semgrep, Bandit, Trivy, and Grype scans
+- Cannot be conditionally granted in reusable workflows
 
 #### Required Secrets
 
@@ -276,22 +343,66 @@ project/
 
 ## 🛡️ Security Features
 
+### Dual-Layer Security Scanning (Defense-in-Depth)
+
+**100% free and open-source security tools** - no signup, no limits, industry-standard:
+
+#### Layer 1: Pre-Build Source Scanning
+Prevents vulnerable code from being built:
+- ✅ **Semgrep SAST**: Fast static analysis for all languages
+  - Configurable rulesets: auto, p/security-audit, p/owasp-top-ten, p/ci
+  - Detects: SQL injection, XSS, hardcoded secrets, insecure patterns
+- ✅ **Bandit** (Python): Source code security analysis for Python projects
+- ✅ **pip-audit** (Python): Official PyPA tool for dependency vulnerability scanning
+- ✅ **npm/yarn audit** (Node.js): Built-in dependency vulnerability scanning
+
+#### Layer 2: Post-Build Artifact Scanning
+Final security gate before publishing:
+- ✅ **Trivy**: Comprehensive vulnerability scanner
+  - Scans: Docker images, filesystem artifacts, packages, configs
+  - Configurable severity thresholds (UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL)
+- ✅ **Grype**: Redundant vulnerability scanner for additional coverage
+- ✅ **Security summary tables**: Visual reports in workflow output
+- ✅ **SARIF uploads**: Centralized findings in GitHub Security tab
+
+#### Configuration
+```yaml
+with:
+  enable_security_scanning: "true"           # Enable/disable (default: enabled)
+  semgrep_rules: "auto"                      # Semgrep ruleset
+  trivy_severity: "MEDIUM,HIGH,CRITICAL"     # Severity threshold
+  trivy_exit_code: "1"                        # 0=warn only, 1=fail build
+```
+
+#### Execution Flow
+```
+lint → security_scan_source → test_and_build → security_scan_artifacts → [publishing jobs]
+  ✅         ✅                      ✅                   ✅                      ✅
+```
+
+All jobs depend on successful security scans - **vulnerable code cannot be published**.
+
 ### Enhanced Security
-- ✅ Updated to latest action versions (checkout@v5, setup-node@v5)
+
+- ✅ Updated to latest action versions (checkout@v6, setup-node@v5)
 - ✅ Minimal permissions (contents: read by default)
 - ✅ Early secret validation with categorized exit codes
+- ✅ Defense-in-depth security architecture
 
 ### Input Validation
+
 - ✅ JSON validation for Docker metadata
 - ✅ Library name sanitization
 - ✅ Path traversal prevention
 
 ### Access Control
+
 - ✅ Minimal required permissions
 - ✅ Secret-based conditional execution
 - ✅ Artifact existence validation
 
 ### Timeouts
+
 - ✅ Optimized timeouts (5-60 minutes)
 - ✅ Prevents runaway builds
 - ✅ Resource usage optimization
@@ -337,10 +448,11 @@ jobs:
     name: external workflow
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
-      id-token: write    # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
-      actions: write     # Required for workflow management
-      contents: write    # Required for GitHub releases
-      packages: write    # Required for Docker/GHCR publishing
+      id-token: write       # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
+      actions: write        # Required for workflow management
+      contents: write       # Required for GitHub releases
+      packages: write       # Required for Docker/GHCR publishing
+      security-events: write # Required for security scanning (SARIF uploads)
     with:
       tool: npm
       lint: "run lint"
@@ -357,9 +469,10 @@ jobs:
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
-  id-token: write    # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
+  id-token: write       # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
   contents: read
-  packages: write    # Required for Docker publishing to GHCR
+  packages: write       # Required for Docker publishing to GHCR
+  security-events: write # Required for security scanning (SARIF uploads)
 with:
   tool: npm
   build_main: "run build"
@@ -374,8 +487,9 @@ with:
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
-  id-token: write    # REQUIRED - Always needed (Python Trusted Publishing)
+  id-token: write       # REQUIRED - Always needed (Python Trusted Publishing)
   contents: read
+  security-events: write # Required for security scanning (SARIF uploads)
 with:
   tool: uv
   install: "sync"
@@ -390,8 +504,9 @@ with:
 ```yaml
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
-  id-token: write    # REQUIRED - Always needed
+  id-token: write       # REQUIRED - Always needed
   contents: read
+  security-events: write # Required for security scanning (SARIF uploads)
 with:
   tool: bash
   install: "install.sh"
@@ -406,7 +521,10 @@ with:
 
 ```mermaid
 graph TD
-    A[build-test-publish.yml] --> B[test-and-build.yml]
+    A[build-test-publish.yml] --> L[lint.yml]
+    A --> M[security-scan-source.yml]
+    A --> B[test-and-build.yml]
+    A --> N[security-scan-artifacts.yml]
     A --> C[publish-docker-image.yml]
     A --> D[publish-npm-libraries.yml]
     A --> E[publish-python-libraries.yml]
@@ -415,6 +533,16 @@ graph TD
     A --> H[release-github.yml]
     A --> J[summarize-workflow.yml]
 
+    L --> M
+    M --> B
+    B --> N
+    N --> C
+    N --> D
+    N --> E
+    N --> F
+    N --> G
+    N --> H
+
     C --> I[External: check-artifact + download-artifact]
     D --> I
     E --> I
@@ -422,6 +550,14 @@ graph TD
     G --> I
     H --> I
 ```
+
+**Execution order:**
+1. **lint** - Validate all workflows with actionlint
+2. **security-scan-source** - Pre-build security scanning (Semgrep, Bandit, pip-audit, npm audit)
+3. **test-and-build** - Run tests and build artifacts
+4. **security-scan-artifacts** - Post-build security scanning (Trivy, Grype)
+5. **[publishing jobs]** - Only execute if all security scans pass
+6. **summarize-workflow** - Aggregate results and report status
 
 ## 🆘 Troubleshooting
 
@@ -456,6 +592,38 @@ permissions:
 - Verify `id-token: write` permission is granted
 - Ensure your npm package is configured for [Trusted Publishing on npmjs.com](https://docs.npmjs.com/generating-provenance-statements)
 - Check that your GitHub repository has access to npm's OIDC provider
+
+### Security Scanning Issues
+
+#### Error: "failed to upload SARIF"
+**Solution:** Ensure `security-events: write` permission is granted:
+```yaml
+permissions:
+  security-events: write
+```
+
+#### Error: "Semgrep scan failed"
+**Solution:**
+- Check the security tab for specific findings
+- Review Semgrep rules configuration (`semgrep_rules` input)
+- For false positives, add `# nosemgrep` comments or adjust ruleset
+- Disable security scanning temporarily with `enable_security_scanning: "false"` (not recommended)
+
+#### Error: "Trivy found HIGH vulnerabilities"
+**Solution:**
+- Review vulnerabilities in the security tab or workflow output
+- Update dependencies to patched versions
+- Adjust severity threshold if needed: `trivy_severity: "CRITICAL"` (less strict)
+- Set `trivy_exit_code: "0"` to warn only (not recommended for production)
+
+#### Disable Security Scanning (Not Recommended)
+If you need to temporarily disable security scanning:
+```yaml
+with:
+  enable_security_scanning: "false"
+```
+
+**Warning:** Disabling security scanning removes critical protection against vulnerabilities. Only use this for testing or non-production workflows.
 
 ### Debug Mode
 

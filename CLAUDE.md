@@ -19,14 +19,17 @@ The repository follows a hierarchical workflow structure:
 ### Workflow Dependencies
 ```
 build-test-publish.yml (orchestrator)
+├── lint.yml (validates workflows)
+├── security-scan-source.yml (pre-build security scanning)
 ├── test-and-build.yml (always runs)
+├── security-scan-artifacts.yml (post-build security scanning)
 ├── publish-docker-image.yml (conditional)
 ├── publish-npm-libraries.yml (conditional)
 ├── publish-python-libraries.yml (conditional)
 ├── publish-firefox-extension.yml (conditional)
 ├── release-android-apk.yml (conditional)
 ├── release-github.yml (conditional)
-└── summarize-workflow.yml (always runs after publishing)
+└── summarize-workflow.yml (always runs after all jobs)
 ```
 
 ## Key Workflows
@@ -54,12 +57,47 @@ Each specialized for different targets:
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
 
+### Security Scanning Workflows
+**Dual-layer defense-in-depth security approach** with 100% free, open-source tools:
+
+#### Pre-Build Security Scan (`security-scan-source.yml`)
+Scans source code and dependencies **before building**:
+- **Semgrep**: Fast SAST for all languages (configurable rulesets)
+- **Bandit**: Python-specific source code security analysis
+- **pip-audit**: Python dependency vulnerability scanning (official PyPA tool)
+- **npm audit** / **yarn audit**: Node.js dependency vulnerability scanning
+- Uploads SARIF reports to GitHub Security tab
+- Fails fast to prevent building vulnerable code
+
+#### Post-Build Artifact Scan (`security-scan-artifacts.yml`)
+Scans **actual build artifacts** before publishing:
+- **Trivy**: Comprehensive scanner for containers, packages, filesystems
+- **Grype**: Alternative vulnerability scanner for redundancy
+- Scans Docker images when `docker_meta` is provided
+- Scans filesystem artifacts from `artifact_path`
+- Generates security summary tables in workflow output
+- Acts as final security gate before publishing
+
+**Configuration:**
+```yaml
+inputs:
+  enable_security_scanning: "true"  # Enable/disable (default: enabled)
+  semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
+  trivy_severity: "MEDIUM,HIGH,CRITICAL"  # Severity threshold
+  trivy_exit_code: "1"               # 0=warn only, 1=fail build
+```
+
+**All security tools are:**
+- ✅ Completely free for open source (no signup, no limits)
+- ✅ Open source projects with active maintenance
+- ✅ Industry-standard tools used by major projects
+
 ### Summary Workflow (`summarize-workflow.yml`)
 Dedicated workflow for result aggregation that:
-- Collects status from all publishing workflows
+- Collects status from all workflows including security scans
 - Generates comprehensive workflow summary with status table
 - Tracks and outputs published artifacts list
-- Provides visual status indicators (✅ Published, ⏭️ Skipped)
+- Provides visual status indicators (✅ Published, ⏭️ Skipped, 🔒 Security Passed)
 - Recently refactored from 90 lines to 30 lines (67% reduction) using helper functions
 
 ## Working with This Repository
@@ -104,12 +142,20 @@ build-test-publish.yml execution flow:
       ├─ Check cache for this hash
       ├─ If cache hit: skip validation (instant ✅)
       └─ If cache miss: run actionlint + cache result
-  2. test_and_build (needs: lint) ← Only runs if lint passes
-  3. [publishing jobs] (needs: test_and_build)
-  4. summarize (needs: all publishing jobs)
+  2. security_scan_source (pre-build security) ← MUST PASS
+      ├─ Semgrep SAST (all languages)
+      ├─ Bandit (Python source code)
+      ├─ pip-audit (Python dependencies)
+      └─ npm/yarn audit (Node.js dependencies)
+  3. test_and_build (needs: security_scan_source) ← Only runs if security passes
+  4. security_scan_artifacts (post-build security) ← MUST PASS
+      ├─ Trivy (artifacts + containers)
+      └─ Grype (backup scanner)
+  5. [publishing jobs] (needs: security_scan_artifacts) ← Only runs if artifacts are secure
+  6. summarize (needs: all jobs)
 ```
 
-This ensures that workflows on the `main` branch are always valid before execution.
+This ensures that workflows on the `main` branch are always valid and secure before execution and publishing.
 
 #### Cross-Repository Validation Caching
 The lint workflow implements intelligent caching to avoid redundant validation:
@@ -135,17 +181,18 @@ This dramatically reduces validation overhead while maintaining safety guarantee
 - Minimal permissions principle applied to all jobs
 
 ### Required Permissions for Calling Workflows
-**IMPORTANT:** All calling workflows **MUST** include the `id-token: write` permission, regardless of which publishing targets they use:
+**IMPORTANT:** All calling workflows **MUST** include these permissions:
 
 ```yaml
 jobs:
   build_and_deploy:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
-      id-token: write    # REQUIRED - Always needed for OIDC (npm Trusted Publishing + future integrations)
-      actions: write     # Required for workflow management
-      contents: write    # Required for GitHub releases
-      packages: write    # Required for Docker/GHCR publishing
+      id-token: write       # REQUIRED - Always needed for OIDC (npm Trusted Publishing + future integrations)
+      actions: write        # Required for workflow management
+      contents: write       # Required for GitHub releases
+      packages: write       # Required for Docker/GHCR publishing
+      security-events: write # Required for SARIF uploads (security scanning)
     with:
       # ... inputs
 ```
@@ -157,11 +204,20 @@ jobs:
 - Must be set at the top-level calling workflow, even if not publishing to npm or PyPI
 - Cannot be controlled with `if` conditions - permissions are evaluated before job execution
 
+**Why is `security-events: write` required?**
+- Enables SARIF uploads to GitHub Security tab for code scanning alerts
+- Provides centralized security vulnerability tracking across repositories
+- Required for Semgrep, Bandit, Trivy, and Grype security reports
+
 ### Workflow Input Patterns
 Key input parameters across workflows:
 - `tool`: Determines build system (npm, yarn, uv, ./gradlew, mvn, bash)
 - `artifact_path`: Where build outputs are stored/retrieved
 - `event_name`: Controls conditional execution (push vs pull_request)
+- `enable_security_scanning`: Enable/disable dual-layer security scanning (default: "true")
+- `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
+- `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
+- `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
 - `overwrite_release`: Enables non-semver workflows by deleting and recreating releases (default: false)
 - Platform-specific metadata (docker_meta, addon_guid, etc.)
 
@@ -209,7 +265,7 @@ The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
 - Ensures security patches are applied promptly
 - Reduces manual maintenance burden
 
-### Recent Optimizations (Phase 1-5)
+### Recent Optimizations (Phase 1-6)
 Key improvements made to the workflow suite:
 1. **Artifact clarity**: Added descriptive suffixes to artifact uploads
 2. **Output cleanup**: Removed unused workflow outputs
@@ -219,6 +275,7 @@ Key improvements made to the workflow suite:
 6. **Code reduction**: Refactored summary workflow (67% line reduction)
 7. **Automation**: Added Dependabot for weekly action updates
 8. **OIDC Integration**: Migrated npm and Python publishing to Trusted Publishing (eliminates NPM_TOKEN and UV_TOKEN secret requirements)
+9. **Security Scanning**: Implemented dual-layer defense-in-depth security with free open-source tools (Semgrep, Bandit, pip-audit, npm audit, Trivy, Grype)
 
 ### Known Correct Patterns (Do Not Change)
 These patterns are intentionally designed and verified as correct:

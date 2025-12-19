@@ -7,6 +7,14 @@ on:
         description: "Result of test and build job"
         required: true
         type: string
+      security_scan_source_result:
+        description: "Result of pre-build security scanning"
+        required: true
+        type: string
+      security_scan_artifacts_result:
+        description: "Result of post-build security scanning"
+        required: true
+        type: string
       publish_docker_image_result:
         description: "Result of docker image publishing"
         required: true
@@ -81,6 +89,10 @@ jobs:
 
           # Collect artifacts from successful jobs
           artifacts=()
+
+          # Security Scanning (no artifact tracking)
+          add_job_row "🔒 Security Scan (Source)" "${{ inputs.security_scan_source_result }}" "Passed"
+          add_job_row "🔒 Security Scan (Artifacts)" "${{ inputs.security_scan_artifacts_result }}" "Passed"
 
           # Build & Test (no artifact tracking)
           add_job_row "Build & Test" "${{ inputs.test_and_build_result }}" "Success"
