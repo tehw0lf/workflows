@@ -38,7 +38,7 @@ jobs:
 ```
 
 **Important permissions:**
-- **`id-token: write` is REQUIRED for all workflows** - Currently used for npm and Python Trusted Publishing (no NPM_TOKEN or UV_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
+- **`id-token: write` is REQUIRED for all workflows** - Currently used for npm, Python, and Rust Trusted Publishing (no NPM_TOKEN, UV_TOKEN, or CARGO_REGISTRY_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
 - **`security-events: write` is REQUIRED** - Enables SARIF uploads to GitHub Security tab for centralized vulnerability tracking
 - Due to GitHub Actions limitations, these permissions must be set at the top-level calling workflow, regardless of which publishing workflows you use
 - If using `release-it` for npm, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
@@ -50,23 +50,28 @@ jobs:
 The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Key Features:**
-- ✅ Multi-language support (Node.js, Python, Java, Gradle, Bash)
+- ✅ Multi-language support (Node.js, Python, Rust, Java, Gradle, Bash)
 - ✅ **Dual-layer security scanning** (pre-build source + post-build artifacts)
 - ✅ Automated testing and building
-- ✅ Multi-platform publishing (Docker, npm, PyPI, Firefox, Android)
+- ✅ Multi-platform publishing (Docker, npm, PyPI, crates.io, Firefox, Android)
 - ✅ Conditional deployment based on branch and inputs
 
 **Required Inputs:**
 - `event_name`: GitHub event name (required)
 
 **Optional Inputs:**
-- `tool`: Build tool (npm, yarn, uv, ./gradlew, mvn, bash)
+- `tool`: Build tool (npm, yarn, uv, cargo, ./gradlew, mvn, bash)
 - `lint`: Linting command
 - `test`: Test command
 - `build_main`: Build command for main branch
 - `artifact_path`: Path to build artifacts
 - `docker_meta`: Docker metadata JSON
 - `libraries`: Comma-separated list of libraries to publish
+- `rust_version`: Rust toolchain version (default: "stable")
+- `enable_clippy`: Run Clippy linting for Rust (default: true)
+- `enable_rustfmt`: Run Rustfmt checks for Rust (default: true)
+- `clippy_args`: Additional Clippy arguments (default: "-- -D warnings")
+- `cargo_features`: Cargo features to enable (e.g., "async,network")
 - `enable_security_scanning`: Enable/disable security scanning (default: "true")
 - `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
@@ -123,7 +128,35 @@ Publishes Python packages to PyPI using `uv` and **Trusted Publishing** (Provena
 
 **Important:** Requires `id-token: write` permission instead of UV_TOKEN secret
 
-### 6. Firefox Extension (`publish-firefox-extension.yml`)
+### 6. Rust/Cargo Crates (`publish-crates-io.yml`)
+
+Publishes Rust crates to crates.io using **OIDC Trusted Publishing** (RFC 3691).
+
+**Features:**
+- ✅ **OIDC Trusted Publishing**: No CARGO_REGISTRY_TOKEN required - uses OpenID Connect
+- ✅ Uses `rust-lang/crates-io-auth-action@v1` for authentication
+- ✅ Short-lived tokens (auto-revoked after workflow completion)
+- ✅ Version deduplication via crates.io API
+- ✅ Dry-run support for testing
+- ✅ Configurable Rustfmt and Clippy with custom arguments
+- ✅ Cargo dependency caching (registry, git, target)
+- ✅ Feature flag support (optional cargo features)
+- ✅ Timeout protection (15 minutes)
+
+**Important:** Requires `id-token: write` permission and Trusted Publisher configuration on crates.io
+
+**Configuration:**
+```yaml
+with:
+  tool: cargo
+  rust_version: stable               # Toolchain version
+  enable_rustfmt: true               # Run rustfmt checks
+  enable_clippy: true                # Run clippy linting
+  clippy_args: "-- -D warnings"      # Clippy arguments
+  cargo_features: "async,network"    # Optional features
+```
+
+### 7. Firefox Extension (`publish-firefox-extension.yml`)
 
 Publishes Firefox browser extensions to Mozilla Add-ons.
 
@@ -240,10 +273,10 @@ jobs:
 **Why are these permissions always required?**
 
 **`id-token: write`:**
-- Currently used for npm and Python Trusted Publishing (no NPM_TOKEN or UV_TOKEN needed!)
+- Currently used for npm, Python, and Rust Trusted Publishing (no NPM_TOKEN, UV_TOKEN, or CARGO_REGISTRY_TOKEN needed!)
 - Planned for future OIDC integrations with other publishing targets (Docker registries, etc.)
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
-- Must be set at the top-level calling workflow, even if you're not publishing to npm or PyPI
+- Must be set at the top-level calling workflow, even if you're not publishing to npm, PyPI, or crates.io
 
 **`security-events: write`:**
 - Required for uploading SARIF reports to GitHub Security tab
@@ -265,6 +298,10 @@ GITHUB_TOKEN: # Auto-provided by GitHub
 
 # For Python publishing - NO UV_TOKEN NEEDED!
 # Uses Trusted Publishing (Provenance) with OIDC
+# Requires: id-token: write permission (see above)
+
+# For Rust/Cargo publishing - NO CARGO_REGISTRY_TOKEN NEEDED!
+# Uses OIDC Trusted Publishing (RFC 3691)
 # Requires: id-token: write permission (see above)
 
 # For Firefox extensions
@@ -328,6 +365,20 @@ project/
 ├── src/
 ├── dist/
 └── .github/workflows/ci.yml
+```
+
+#### Rust Project
+```
+project/
+├── Cargo.toml
+├── Cargo.lock
+├── src/
+│   ├── main.rs (binary)
+│   └── lib.rs (library)
+├── tests/
+├── benches/
+├── target/
+└── .github/workflows/ci-cd.yml
 ```
 
 #### Monorepo with Libraries
@@ -499,6 +550,46 @@ with:
   artifact_path: "dist"
   event_name: ${{ github.event_name }}
 ```
+
+### Rust Crate
+```yaml
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build_and_publish:
+    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      id-token: write       # REQUIRED - For OIDC Trusted Publishing to crates.io
+      actions: write
+      contents: write
+      packages: write
+      security-events: write
+    with:
+      tool: cargo
+      artifact_path: target/release/my-crate
+      event_name: ${{ github.event_name }}
+
+      # Rust configuration (all optional - defaults shown)
+      rust_version: stable
+      enable_rustfmt: true
+      enable_clippy: true
+      clippy_args: "-- -D warnings"
+
+      # Security scanning
+      enable_security_scanning: "true"
+
+      # GitHub release configuration (optional)
+      publish_github_release: ${{ startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
+      release_tag: ${{ github.ref_name }}
+```
+
+**Note:** Before first publish, configure Trusted Publisher on crates.io for your repository. No secrets required!
 
 ### Bash Scripts
 ```yaml
