@@ -41,8 +41,6 @@ jobs:
   scan_source:
     name: scan source code and dependencies
     runs-on: ${{ inputs.runner }}
-    container:
-      image: semgrep/semgrep
     timeout-minutes: 15
     permissions:
       contents: read
@@ -61,7 +59,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Setup Python once for all tools (Semgrep, Bandit, pip-audit)
+      - name: setup python (from pyproject.toml for uv, 3.12 otherwise)
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.tool == 'uv' && '' || '3.12' }}
+          python-version-file: ${{ inputs.tool == 'uv' && format('{0}/pyproject.toml', inputs.root_dir) || '' }}
+
       # Layer 1a: Semgrep SAST (all languages)
+      - name: install semgrep
+        run: pip install semgrep
+
       - name: semgrep security scan
         id: semgrep
         run: semgrep ci --config=${{ inputs.semgrep_rules }} --sarif > semgrep.sarif
@@ -75,12 +83,6 @@ jobs:
         continue-on-error: true
 
       # Layer 1b: Python-specific scanning
-      - name: setup python for python scanning
-        if: ${{ inputs.tool == 'uv' }}
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: "${{ inputs.root_dir }}/pyproject.toml"
-
       - name: install bandit
         if: ${{ inputs.tool == 'uv' }}
         run: pip install bandit[toml]
