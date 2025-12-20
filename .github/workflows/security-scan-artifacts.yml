@@ -123,7 +123,7 @@ jobs:
         if: ${{ inputs.docker_meta != '' }}
         run: |
           echo "images<<EOF" >> $GITHUB_OUTPUT
-          echo '${{ inputs.docker_namespace }}/${{ inputs.docker_meta }}' | jq -r '.[].name' >> $GITHUB_OUTPUT
+          echo '${{ inputs.docker_meta }}' | jq -r '.[].name' | (echo -n "${{ inputs.docker_namespace }}/" && cat) >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: trivy image scan
