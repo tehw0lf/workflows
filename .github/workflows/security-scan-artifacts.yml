@@ -23,6 +23,16 @@ on:
         default: ""
         required: false
         type: string
+      registry:
+        description: "registry"
+        required: false
+        type: string
+        default: "ghcr.io"
+      docker_namespace:
+        description: "docker namespace"
+        required: false
+        type: string
+        default: "tehw0lf"
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -91,20 +101,20 @@ jobs:
         if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          scan-type: 'fs'
-          scan-ref: '${{ inputs.artifact_path }}'
-          format: 'sarif'
-          output: 'trivy-fs-results.sarif'
-          severity: '${{ inputs.trivy_severity }}'
-          exit-code: '${{ inputs.trivy_exit_code }}'
+          scan-type: "fs"
+          scan-ref: "${{ inputs.artifact_path }}"
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "${{ inputs.trivy_severity }}"
+          exit-code: "${{ inputs.trivy_exit_code }}"
         continue-on-error: false
 
       - name: upload trivy fs SARIF
         if: always() && steps.trivy-fs.outcome != 'skipped'
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: 'trivy-fs-results.sarif'
-          category: 'trivy-filesystem'
+          sarif_file: "trivy-fs-results.sarif"
+          category: "trivy-filesystem"
         continue-on-error: true
 
       # Layer 2b: Trivy image scan (Docker images if applicable)
@@ -113,7 +123,7 @@ jobs:
         if: ${{ inputs.docker_meta != '' }}
         run: |
           echo "images<<EOF" >> $GITHUB_OUTPUT
-          echo '${{ inputs.docker_meta }}' | jq -r '.[].name' >> $GITHUB_OUTPUT
+          echo '${{ inputs.docker_namespace }}/${{ inputs.docker_meta }}' | jq -r '.[].name' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: trivy image scan
@@ -121,20 +131,20 @@ jobs:
         if: ${{ inputs.docker_meta != '' && steps.docker-images.outputs.images != '' }}
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          scan-type: 'image'
-          image-ref: '${{ steps.docker-images.outputs.images }}'
-          format: 'sarif'
-          output: 'trivy-image-results.sarif'
-          severity: '${{ inputs.trivy_severity }}'
-          exit-code: '${{ inputs.trivy_exit_code }}'
+          scan-type: "image"
+          image-ref: "${{ steps.docker-images.outputs.images }}"
+          format: "sarif"
+          output: "trivy-image-results.sarif"
+          severity: "${{ inputs.trivy_severity }}"
+          exit-code: "${{ inputs.trivy_exit_code }}"
         continue-on-error: false
 
       - name: upload trivy image SARIF
         if: always() && steps.trivy-image.outcome != 'skipped'
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: 'trivy-image-results.sarif'
-          category: 'trivy-image'
+          sarif_file: "trivy-image-results.sarif"
+          category: "trivy-image"
         continue-on-error: true
 
       # Layer 2c: Grype scan (alternative/backup scanner)
@@ -143,7 +153,7 @@ jobs:
         if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
         uses: anchore/scan-action@v5
         with:
-          path: '${{ inputs.artifact_path }}'
+          path: "${{ inputs.artifact_path }}"
           fail-build: true
           severity-cutoff: medium
           output-format: sarif
@@ -154,7 +164,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}
-          category: 'grype'
+          category: "grype"
         continue-on-error: true
 
       # Summary table generation
