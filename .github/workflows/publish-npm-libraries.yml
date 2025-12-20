@@ -108,13 +108,6 @@ jobs:
           # Create SBOM directory
           mkdir -p sbom
 
-          # Determine package manager and lock file
-          if [[ "$TOOL" == "npm" ]]; then
-            LOCK_FILE="package-lock.json"
-          elif [[ "$TOOL" == "yarn" ]]; then
-            LOCK_FILE="yarn.lock"
-          fi
-
           # Generate SBOM using GitHub's SBOM tool
           if [[ "$SBOM_FORMAT" == "spdx" ]]; then
             npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.spdx.json --spec-version 2.3 --output-format JSON
