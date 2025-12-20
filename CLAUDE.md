@@ -51,11 +51,42 @@ Core workflow that:
 ### Publishing Workflows
 Each specialized for different targets:
 - **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
-- **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**
+- **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**, **SBOM generation and attestation with Sigstore**
 - **Python**: UV-based publishing to PyPI with explicit artifact validation, **uses OIDC Trusted Publishing (no UV_TOKEN required)**
 - **Firefox**: XPI packaging and AMO publishing
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
+
+#### NPM SBOM Attestation
+The npm publishing workflow generates and attests Software Bill of Materials (SBOM) for supply chain security:
+- **Automatic SBOM generation**: Creates SBOM from package-lock.json/yarn.lock using CycloneDX
+- **Sigstore attestation**: Signs SBOM with keyless signing via GitHub's OIDC (eliminates need for signing keys)
+- **Format support**: SPDX (default) or CycloneDX formats
+- **Artifact retention**: SBOM uploaded as workflow artifact with 90-day retention
+- **Verification**: Consumers can verify attestations using `npm audit signatures`
+
+**Configuration:**
+```yaml
+inputs:
+  enable_sbom_attestation: "true"  # Enable/disable (default: enabled)
+  sbom_format: "spdx"              # spdx or cyclonedx (default: spdx)
+```
+
+**Verifying SBOM attestations as a consumer:**
+```bash
+# Download attestation bundle for a published package
+npm audit signatures <package-name>
+
+# View SBOM details
+gh attestation verify oci://registry.npmjs.org/<namespace>/<package>@<version> \
+  --owner <github-org>
+```
+
+**Benefits:**
+- ✅ Supply chain transparency: Full visibility into all dependencies
+- ✅ Vulnerability tracking: Quick querying against known malicious packages
+- ✅ Compliance: Meet SLSA/SSDF regulatory requirements
+- ✅ Incident response: Rapid impact analysis during supply chain attacks
 
 ### Security Scanning Workflows
 **Dual-layer defense-in-depth security approach** with 100% free, open-source tools:

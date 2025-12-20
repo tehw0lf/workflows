@@ -43,6 +43,16 @@ on:
         required: false
         type: string
         default: "true"
+      enable_sbom_attestation:
+        description: "enable SBOM generation and attestation"
+        required: false
+        type: string
+        default: "true"
+      sbom_format:
+        description: "SBOM format - spdx or cyclonedx"
+        required: false
+        type: string
+        default: "spdx"
 
 jobs:
   publish_npm_libraries:
@@ -174,3 +184,48 @@ jobs:
         env:
           NPM_NAMESPACE: ${{ inputs.npm_namespace }}
           LIBRARY_PATH: ${{ inputs.library_path }}
+
+      - name: generate SBOM
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        run: |
+          echo "::notice::[SBOM] Generating SBOM in $SBOM_FORMAT format"
+
+          # Create SBOM directory
+          mkdir -p sbom
+
+          # Determine package manager and lock file
+          if [[ "$TOOL" == "npm" ]]; then
+            LOCK_FILE="package-lock.json"
+          elif [[ "$TOOL" == "yarn" ]]; then
+            LOCK_FILE="yarn.lock"
+          fi
+
+          # Generate SBOM using GitHub's SBOM tool
+          if [[ "$SBOM_FORMAT" == "spdx" ]]; then
+            npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.spdx.json --spec-version 2.3 --output-format JSON
+          else
+            npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.4
+          fi
+
+          echo "::notice::[SBOM] SBOM generated successfully"
+        env:
+          TOOL: ${{ inputs.tool }}
+          SBOM_FORMAT: ${{ inputs.sbom_format }}
+
+      - name: attest SBOM
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        uses: actions/attest-sbom@v2
+        with:
+          subject-path: |
+            ${{ inputs.root_dir }}/sbom/sbom.*.json
+          sbom-path: |
+            ${{ inputs.root_dir }}/sbom/sbom.*.json
+
+      - name: upload SBOM artifact
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-npm-libraries
+          path: ${{ inputs.root_dir }}/sbom/
+          retention-days: 90
+          if-no-files-found: warn
