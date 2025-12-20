@@ -39,6 +39,10 @@ on:
         description: "Result of github release"
         required: true
         type: string
+      publish_crates_io_result:
+        description: "Result of crates.io publishing"
+        required: true
+        type: string
     outputs:
       artifacts:
         description: "List of published artifacts"
@@ -114,6 +118,9 @@ jobs:
           [[ -n "$result" ]] && artifacts+=("$result")
 
           result=$(add_job_row "GitHub Release" "${{ inputs.release_github_result }}" "Created" "github")
+          [[ -n "$result" ]] && artifacts+=("$result")
+
+          result=$(add_job_row "Crates.io" "${{ inputs.publish_crates_io_result }}" "Published" "crates.io")
           [[ -n "$result" ]] && artifacts+=("$result")
 
           # Convert artifacts array to JSON

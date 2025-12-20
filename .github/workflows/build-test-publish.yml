@@ -181,6 +181,41 @@ on:
         default: "1"
         required: false
         type: string
+      rust_version:
+        description: "rust toolchain version"
+        default: "stable"
+        required: false
+        type: string
+      enable_clippy:
+        description: "run clippy linting for rust projects"
+        default: true
+        required: false
+        type: boolean
+      enable_rustfmt:
+        description: "run rustfmt checks for rust projects"
+        default: true
+        required: false
+        type: boolean
+      clippy_args:
+        description: "additional clippy arguments"
+        default: "-- -D warnings"
+        required: false
+        type: string
+      cargo_features:
+        description: "cargo features to enable (e.g., 'async,network')"
+        default: ""
+        required: false
+        type: string
+      cargo_dry_run:
+        description: "perform dry-run instead of actual crates.io publish"
+        default: false
+        required: false
+        type: boolean
+      cargo_package_name:
+        description: "crate name (defaults to workspace name from Cargo.toml)"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   lint:
@@ -215,6 +250,11 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       runner: ${{ inputs.runner }}
       app_root: ${{ inputs.app_root }}
+      rust_version: ${{ inputs.rust_version }}
+      enable_clippy: ${{ inputs.enable_clippy }}
+      enable_rustfmt: ${{ inputs.enable_rustfmt }}
+      clippy_args: ${{ inputs.clippy_args }}
+      cargo_features: ${{ inputs.cargo_features }}
 
   security_scan_artifacts:
     if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' }}
@@ -306,6 +346,17 @@ jobs:
       release_pre: ${{ inputs.release_pre }}
       overwrite_release: ${{ inputs.overwrite_release }}
 
+  publish_crates_io:
+    if: ${{ github.event_name == 'push' && inputs.tool == 'cargo' }}
+    needs: [test_and_build, security_scan_artifacts]
+    uses: ./.github/workflows/publish-crates-io.yml
+    with:
+      runner: ${{ inputs.runner }}
+      root_dir: ${{ inputs.root_dir }}
+      artifact_path: ${{ inputs.artifact_path }}
+      package_name: ${{ inputs.cargo_package_name }}
+      dry_run: ${{ inputs.cargo_dry_run }}
+
   summarize:
     if: ${{ always() }}
     needs:
@@ -319,6 +370,7 @@ jobs:
         publish_firefox_extension,
         release_android_apk,
         release_github,
+        publish_crates_io,
       ]
     uses: ./.github/workflows/summarize-workflow.yml
     with:
@@ -331,3 +383,4 @@ jobs:
       publish_firefox_extension_result: ${{ needs.publish_firefox_extension.result }}
       release_android_apk_result: ${{ needs.release_android_apk.result }}
       release_github_result: ${{ needs.release_github.result }}
+      publish_crates_io_result: ${{ needs.publish_crates_io.result }}

@@ -68,6 +68,31 @@ on:
         default: ""
         required: false
         type: string
+      rust_version:
+        description: "rust toolchain version"
+        default: "stable"
+        required: false
+        type: string
+      enable_clippy:
+        description: "run clippy linting for rust projects"
+        default: true
+        required: false
+        type: boolean
+      enable_rustfmt:
+        description: "run rustfmt checks for rust projects"
+        default: true
+        required: false
+        type: boolean
+      clippy_args:
+        description: "additional clippy arguments"
+        default: "-- -D warnings"
+        required: false
+        type: string
+      cargo_features:
+        description: "cargo features to enable (e.g., 'async,network')"
+        default: ""
+        required: false
+        type: string
 
 jobs:
   test_and_build:
@@ -130,6 +155,25 @@ jobs:
         with:
           python-version-file: "${{ inputs.root_dir }}/pyproject.toml"
 
+      - name: install rust toolchain
+        if: ${{ inputs.tool == 'cargo' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.rust_version }}
+          components: ${{ inputs.enable_rustfmt == true && 'rustfmt' || '' }}${{ inputs.enable_clippy == true && inputs.enable_rustfmt == true && ',clippy' || inputs.enable_clippy == true && 'clippy' || '' }}
+
+      - name: cache cargo dependencies
+        if: ${{ inputs.tool == 'cargo' }}
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: deps-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            deps-cargo-${{ runner.os }}-
+
       - name: enable nx shas
         if: ${{ success() && hashFiles('./nx.json') != '' }}
         uses: nrwl/nx-set-shas@v4
@@ -178,6 +222,44 @@ jobs:
       - name: e2e test
         if: ${{ inputs.tool != 'none' && inputs.e2e != '' }}
         run: ${{ inputs.tool }} ${{ inputs.e2e }}
+
+      - name: run rustfmt
+        if: ${{ inputs.tool == 'cargo' && inputs.enable_rustfmt == true }}
+        run: cargo fmt --all -- --check
+
+      - name: run clippy
+        if: ${{ inputs.tool == 'cargo' && inputs.enable_clippy == true }}
+        run: |
+          if [[ -n "$CARGO_FEATURES" ]]; then
+            cargo clippy --all-targets --features "$CARGO_FEATURES" $CLIPPY_ARGS
+          else
+            cargo clippy --all-targets --all-features $CLIPPY_ARGS
+          fi
+        env:
+          CARGO_FEATURES: ${{ inputs.cargo_features }}
+          CLIPPY_ARGS: ${{ inputs.clippy_args }}
+
+      - name: run cargo tests
+        if: ${{ inputs.tool == 'cargo' }}
+        run: |
+          if [[ -n "$CARGO_FEATURES" ]]; then
+            cargo test --features "$CARGO_FEATURES"
+          else
+            cargo test --all-features
+          fi
+        env:
+          CARGO_FEATURES: ${{ inputs.cargo_features }}
+
+      - name: build cargo release
+        if: ${{ inputs.tool == 'cargo' }}
+        run: |
+          if [[ -n "$CARGO_FEATURES" ]]; then
+            cargo build --release --features "$CARGO_FEATURES"
+          else
+            cargo build --release
+          fi
+        env:
+          CARGO_FEATURES: ${{ inputs.cargo_features }}
 
       - name: build on branch
         if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}

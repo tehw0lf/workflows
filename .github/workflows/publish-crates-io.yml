@@ -1,0 +1,133 @@
+name: publish crates.io
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files to save from build step"
+        default: ""
+        required: false
+        type: string
+      package_name:
+        description: "crate name (defaults to workspace name from Cargo.toml)"
+        default: ""
+        required: false
+        type: string
+      dry_run:
+        description: "perform dry-run instead of actual publish"
+        default: false
+        required: false
+        type: boolean
+
+jobs:
+  publish_crates_io:
+    name: publish to crates.io
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: check build artifact existence
+        uses: softwareforgood/check-artifact-v4-existence@v0
+        id: check_artifact_exists
+        with:
+          name: build
+
+      - name: validate artifact availability
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists != 'true' }}
+        run: |
+          echo "::error::[crates.io] Build artifact 'build' not found"
+          echo "::error::[crates.io] Expected artifact at: ${{ inputs.artifact_path }}"
+          echo "::error::[crates.io] This usually means the build step failed or didn't produce artifacts"
+          echo "FAILURE_REASON=missing_artifact" >> $GITHUB_ENV
+          exit 1
+
+      - name: download build artifact
+        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        uses: actions/download-artifact@v7
+        with:
+          name: build
+          path: ${{ inputs.artifact_path }}
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache cargo dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: deps-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            deps-cargo-${{ runner.os }}-
+
+      - name: extract package name
+        id: package_info
+        run: |
+          if [[ -n "$PACKAGE_NAME" ]]; then
+            echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          else
+            # Extract package name from Cargo.toml
+            package_name=$(grep -m1 '^name = ' Cargo.toml | sed 's/name = "\(.*\)"/\1/')
+            echo "name=$package_name" >> $GITHUB_OUTPUT
+          fi
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+
+      - name: check if version already published
+        id: version_check
+        run: |
+          package_version=$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$package_version" >> $GITHUB_OUTPUT
+
+          # Query crates.io API to check if version exists
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" "https://crates.io/api/v1/crates/${{ steps.package_info.outputs.name }}/$package_version")
+
+          if [[ "$http_code" == "200" ]]; then
+            echo "::notice::[crates.io] Version $package_version of ${{ steps.package_info.outputs.name }} already published"
+            echo "already_published=true" >> $GITHUB_OUTPUT
+          else
+            echo "::notice::[crates.io] Version $package_version of ${{ steps.package_info.outputs.name }} not yet published"
+            echo "already_published=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: authenticate with crates.io
+        if: ${{ steps.version_check.outputs.already_published == 'false' }}
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: cargo publish dry-run
+        if: ${{ inputs.dry_run == true && steps.version_check.outputs.already_published == 'false' }}
+        run: |
+          echo "::notice::[crates.io] Running dry-run for ${{ steps.package_info.outputs.name }} v${{ steps.version_check.outputs.version }}"
+          cargo publish --dry-run
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+      - name: cargo publish
+        if: ${{ inputs.dry_run == false && steps.version_check.outputs.already_published == 'false' }}
+        run: |
+          echo "::notice::[crates.io] Publishing ${{ steps.package_info.outputs.name }} v${{ steps.version_check.outputs.version }} using OIDC Trusted Publishing"
+          cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
