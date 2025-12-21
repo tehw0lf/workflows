@@ -51,7 +51,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Key Features:**
 - ✅ Multi-language support (Node.js, Python, Rust, Java, Gradle, Bash)
-- ✅ **Dual-layer security scanning** (pre-build source + post-build artifacts)
+- ✅ **Triple-layer security scanning** (pre-build source + post-build artifacts + post-publish verification)
 - ✅ Automated testing and building
 - ✅ Multi-platform publishing (Docker, npm, PyPI, crates.io, Firefox, Android)
 - ✅ Conditional deployment based on branch and inputs
@@ -223,15 +223,26 @@ with:
 
 ### 11. Security Scan Artifacts (`security-scan-artifacts.yml`)
 
-**Post-build security layer** that scans build artifacts before publishing.
+**Pre-publish security layer** that scans build artifacts before publishing.
 
 **Features:**
-- ✅ **Trivy**: Comprehensive scanner for containers, packages, filesystems
+- ✅ **Trivy**: Comprehensive filesystem scanner for packages and dependencies
 - ✅ **Grype**: Alternative vulnerability scanner for redundancy
-- ✅ **Docker image scanning**: When `docker_meta` is provided
 - ✅ **Filesystem scanning**: Scans artifacts from `artifact_path`
 - ✅ **Security summary tables**: Visual vulnerability reports in workflow output
-- ✅ **Final security gate**: Blocks publishing of vulnerable artifacts
+- ✅ **Security gate**: Blocks publishing of vulnerable artifacts
+- ✅ Timeout protection (20 minutes)
+
+### 12. Post-Publish Verification (`post-publish-verification.yml`)
+
+**Post-publish security layer** that verifies published Docker images.
+
+**Features:**
+- ✅ **Trivy**: Scans published Docker images pulled from registry
+- ✅ **GHCR Authentication**: Uses GitHub OIDC token for registry access
+- ✅ **Supply chain verification**: Detects post-build tampering or vulnerabilities
+- ✅ **Multi-image support**: Scans all published Docker images
+- ✅ **SARIF uploads**: Results appear in GitHub Security tab
 - ✅ Timeout protection (20 minutes)
 
 **Configuration:**
@@ -244,8 +255,9 @@ with:
 **Defense-in-depth architecture:**
 1. **Pre-build** (security-scan-source.yml): Scan code & dependencies → Prevent vulnerable builds
 2. **Build** (test-and-build.yml): Create artifacts
-3. **Post-build** (security-scan-artifacts.yml): Scan artifacts → Block vulnerable publishes
-4. **Publish**: Only if both security layers pass ✅
+3. **Pre-publish** (security-scan-artifacts.yml): Scan filesystem artifacts → Block vulnerable publishes
+4. **Publish**: Docker images, npm packages, PyPI packages, etc.
+5. **Post-publish** (post-publish-verification.yml): Verify published Docker images → Detect supply chain attacks ✅
 
 ## 🔧 Setup Instructions
 
@@ -425,7 +437,7 @@ gh attestation verify oci://registry.npmjs.org/<namespace>/<package>@<version> \
 - ✅ Compliance: Meet SLSA/SSDF regulatory requirements
 - ✅ Incident response: Rapid impact analysis during supply chain attacks
 
-### Dual-Layer Security Scanning (Defense-in-Depth)
+### Triple-Layer Security Scanning (Defense-in-Depth)
 
 **100% free and open-source security tools** - no signup, no limits, industry-standard:
 
@@ -438,14 +450,23 @@ Prevents vulnerable code from being built:
 - ✅ **pip-audit** (Python): Official PyPA tool for dependency vulnerability scanning
 - ✅ **npm/yarn audit** (Node.js): Built-in dependency vulnerability scanning
 
-#### Layer 2: Post-Build Artifact Scanning
-Final security gate before publishing:
-- ✅ **Trivy**: Comprehensive vulnerability scanner
-  - Scans: Docker images, filesystem artifacts, packages, configs
+#### Layer 2: Pre-Publish Artifact Scanning
+Security gate before publishing:
+- ✅ **Trivy**: Comprehensive filesystem vulnerability scanner
+  - Scans: Filesystem artifacts, packages, dependencies
   - Configurable severity thresholds (UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL)
 - ✅ **Grype**: Redundant vulnerability scanner for additional coverage
 - ✅ **Security summary tables**: Visual reports in workflow output
 - ✅ **SARIF uploads**: Centralized findings in GitHub Security tab
+
+#### Layer 3: Post-Publish Verification
+Verifies published Docker images:
+- ✅ **Trivy**: Scans published Docker images from registry
+  - Authenticates to GHCR using GitHub OIDC token
+  - Pulls and scans actual deployed images
+  - Detects post-build supply chain attacks
+- ✅ **SARIF uploads**: Results appear in GitHub Security tab
+- ✅ **Multi-image support**: Scans all published Docker images
 
 #### Configuration
 ```yaml
@@ -458,11 +479,11 @@ with:
 
 #### Execution Flow
 ```
-lint → security_scan_source → test_and_build → security_scan_artifacts → [publishing jobs]
-  ✅         ✅                      ✅                   ✅                      ✅
+lint → security_scan_source → test_and_build → security_scan_artifacts → [publishing jobs] → post_publish_verification
+  ✅         ✅                      ✅                   ✅                      ✅                       ✅
 ```
 
-All jobs depend on successful security scans - **vulnerable code cannot be published**.
+All jobs depend on successful security scans - **vulnerable code cannot be published** and **published images are verified**.
 
 ### Enhanced Security
 
@@ -653,6 +674,8 @@ graph TD
     A --> F[publish-firefox-extension.yml]
     A --> G[release-android-apk.yml]
     A --> H[release-github.yml]
+    A --> K[publish-crates-io.yml]
+    A --> O[post-publish-verification.yml]
     A --> J[summarize-workflow.yml]
 
     L --> M
@@ -664,6 +687,9 @@ graph TD
     N --> F
     N --> G
     N --> H
+    N --> K
+    C --> O
+    O --> J
 
     C --> I[External: check-artifact + download-artifact]
     D --> I
@@ -671,15 +697,17 @@ graph TD
     F --> I
     G --> I
     H --> I
+    K --> I
 ```
 
 **Execution order:**
 1. **lint** - Validate all workflows with actionlint
 2. **security-scan-source** - Pre-build security scanning (Semgrep, Bandit, pip-audit, npm audit)
 3. **test-and-build** - Run tests and build artifacts
-4. **security-scan-artifacts** - Post-build security scanning (Trivy, Grype)
+4. **security-scan-artifacts** - Pre-publish security scanning (Trivy, Grype on filesystem artifacts)
 5. **[publishing jobs]** - Only execute if all security scans pass
-6. **summarize-workflow** - Aggregate results and report status
+6. **post-publish-verification** - Verify published Docker images from registry
+7. **summarize-workflow** - Aggregate results and report status
 
 ## 🆘 Troubleshooting
 

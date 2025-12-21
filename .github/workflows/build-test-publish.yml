@@ -264,7 +264,6 @@ jobs:
       root_dir: ${{ inputs.root_dir }}
       tool: ${{ inputs.tool }}
       artifact_path: ${{ inputs.artifact_path }}
-      docker_meta: ${{ inputs.docker_meta }}
       runner: ${{ inputs.runner }}
       trivy_severity: ${{ inputs.trivy_severity }}
       trivy_exit_code: ${{ inputs.trivy_exit_code }}
@@ -357,6 +356,18 @@ jobs:
       package_name: ${{ inputs.cargo_package_name }}
       dry_run: ${{ inputs.cargo_dry_run }}
 
+  post_publish_verification:
+    if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' && inputs.docker_meta != '' }}
+    needs: publish_docker_image
+    uses: ./.github/workflows/post-publish-verification.yml
+    with:
+      docker_meta: ${{ inputs.docker_meta }}
+      registry: ${{ inputs.registry }}
+      docker_namespace: ${{ inputs.docker_namespace }}
+      runner: ${{ inputs.runner }}
+      trivy_severity: ${{ inputs.trivy_severity }}
+      trivy_exit_code: ${{ inputs.trivy_exit_code }}
+
   summarize:
     if: ${{ always() }}
     needs:
@@ -371,6 +382,7 @@ jobs:
         release_android_apk,
         release_github,
         publish_crates_io,
+        post_publish_verification,
       ]
     uses: ./.github/workflows/summarize-workflow.yml
     with:
@@ -384,3 +396,4 @@ jobs:
       release_android_apk_result: ${{ needs.release_android_apk.result }}
       release_github_result: ${{ needs.release_github.result }}
       publish_crates_io_result: ${{ needs.publish_crates_io.result }}
+      post_publish_verification_result: ${{ needs.post_publish_verification.result }}

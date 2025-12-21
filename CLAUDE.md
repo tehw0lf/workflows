@@ -22,13 +22,14 @@ build-test-publish.yml (orchestrator)
 ├── lint.yml (validates workflows)
 ├── security-scan-source.yml (pre-build security scanning)
 ├── test-and-build.yml (always runs)
-├── security-scan-artifacts.yml (post-build security scanning)
+├── security-scan-artifacts.yml (post-build filesystem/artifact scanning)
 ├── publish-docker-image.yml (conditional)
 ├── publish-npm-libraries.yml (conditional)
 ├── publish-python-libraries.yml (conditional)
 ├── publish-firefox-extension.yml (conditional)
 ├── release-android-apk.yml (conditional)
 ├── release-github.yml (conditional)
+├── post-publish-verification.yml (verifies published Docker images)
 └── summarize-workflow.yml (always runs after all jobs)
 ```
 
@@ -89,9 +90,9 @@ gh attestation verify oci://registry.npmjs.org/<namespace>/<package>@<version> \
 - ✅ Incident response: Rapid impact analysis during supply chain attacks
 
 ### Security Scanning Workflows
-**Dual-layer defense-in-depth security approach** with 100% free, open-source tools:
+**Triple-layer defense-in-depth security approach** with 100% free, open-source tools:
 
-#### Pre-Build Security Scan (`security-scan-source.yml`)
+#### Layer 1: Pre-Build Security Scan (`security-scan-source.yml`)
 Scans source code and dependencies **before building**:
 - **Semgrep**: Fast SAST for all languages (configurable rulesets)
 - **Bandit**: Python-specific source code security analysis
@@ -100,14 +101,22 @@ Scans source code and dependencies **before building**:
 - Uploads SARIF reports to GitHub Security tab
 - Fails fast to prevent building vulnerable code
 
-#### Post-Build Artifact Scan (`security-scan-artifacts.yml`)
-Scans **actual build artifacts** before publishing:
-- **Trivy**: Comprehensive scanner for containers, packages, filesystems
+#### Layer 2: Post-Build Artifact Scan (`security-scan-artifacts.yml`)
+Scans **build artifacts** before publishing:
+- **Trivy**: Comprehensive filesystem scanner for packages and dependencies
 - **Grype**: Alternative vulnerability scanner for redundancy
-- Scans Docker images when `docker_meta` is provided
 - Scans filesystem artifacts from `artifact_path`
 - Generates security summary tables in workflow output
-- Acts as final security gate before publishing
+- Acts as security gate before publishing
+
+#### Layer 3: Post-Publish Verification (`post-publish-verification.yml`)
+Verifies **published Docker images** after deployment:
+- **Trivy**: Scans published Docker images pulled from registry
+- Authenticates to GHCR using GitHub OIDC token
+- Runs after `publish_docker_image` job completes
+- Scans actual published images to detect post-build supply chain attacks
+- Uploads SARIF reports to GitHub Security tab
+- Only runs when `docker_meta` is provided and publishing is enabled
 
 **Configuration:**
 ```yaml
@@ -179,14 +188,23 @@ build-test-publish.yml execution flow:
       ├─ pip-audit (Python dependencies)
       └─ npm/yarn audit (Node.js dependencies)
   3. test_and_build (needs: security_scan_source) ← Only runs if security passes
-  4. security_scan_artifacts (post-build security) ← MUST PASS
-      ├─ Trivy (artifacts + containers)
-      └─ Grype (backup scanner)
+  4. security_scan_artifacts (pre-publish security) ← MUST PASS
+      ├─ Trivy (filesystem artifacts)
+      └─ Grype (backup filesystem scanner)
   5. [publishing jobs] (needs: security_scan_artifacts) ← Only runs if artifacts are secure
-  6. summarize (needs: all jobs)
+      ├─ publish_docker_image
+      ├─ publish_npm_libraries
+      ├─ publish_python_libraries
+      ├─ publish_firefox_extension
+      ├─ release_android_apk
+      ├─ release_github
+      └─ publish_crates_io
+  6. post_publish_verification (post-publish security) ← MUST PASS
+      └─ Trivy (scans published Docker images from registry)
+  7. summarize (needs: all jobs)
 ```
 
-This ensures that workflows on the `main` branch are always valid and secure before execution and publishing.
+This ensures that workflows on the `main` branch are always valid and secure before execution, during publishing, and after deployment.
 
 #### Cross-Repository Validation Caching
 The lint workflow implements intelligent caching to avoid redundant validation:
@@ -296,7 +314,7 @@ The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
 - Ensures security patches are applied promptly
 - Reduces manual maintenance burden
 
-### Recent Optimizations (Phase 1-6)
+### Recent Optimizations (Phase 1-7)
 Key improvements made to the workflow suite:
 1. **Artifact clarity**: Added descriptive suffixes to artifact uploads
 2. **Output cleanup**: Removed unused workflow outputs
@@ -306,7 +324,8 @@ Key improvements made to the workflow suite:
 6. **Code reduction**: Refactored summary workflow (67% line reduction)
 7. **Automation**: Added Dependabot for weekly action updates
 8. **OIDC Integration**: Migrated npm and Python publishing to Trusted Publishing (eliminates NPM_TOKEN and UV_TOKEN secret requirements)
-9. **Security Scanning**: Implemented dual-layer defense-in-depth security with free open-source tools (Semgrep, Bandit, pip-audit, npm audit, Trivy, Grype)
+9. **Security Scanning**: Implemented triple-layer defense-in-depth security with free open-source tools (Semgrep, Bandit, pip-audit, npm audit, Trivy, Grype)
+10. **Post-Publish Verification**: Added dedicated workflow to scan published Docker images from registry (prevents timing issues and authentication failures)
 
 ### Known Correct Patterns (Do Not Change)
 These patterns are intentionally designed and verified as correct:

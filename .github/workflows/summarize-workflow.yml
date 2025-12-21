@@ -43,6 +43,10 @@ on:
         description: "Result of crates.io publishing"
         required: true
         type: string
+      post_publish_verification_result:
+        description: "Result of post-publish verification"
+        required: true
+        type: string
     outputs:
       artifacts:
         description: "List of published artifacts"
@@ -122,6 +126,9 @@ jobs:
 
           result=$(add_job_row "Crates.io" "${{ inputs.publish_crates_io_result }}" "Published" "crates.io")
           [[ -n "$result" ]] && artifacts+=("$result")
+
+          # Post-publish verification (no artifact tracking)
+          add_job_row "🔒 Post-Publish Verification" "${{ inputs.post_publish_verification_result }}" "Verified"
 
           # Convert artifacts array to JSON
           if [ ${#artifacts[@]} -eq 0 ]; then
