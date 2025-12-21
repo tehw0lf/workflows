@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: "tehw0lf"
+      platforms:
+        description: "platforms to scan (e.g., 'linux/amd64,linux/arm64')"
+        default: "linux/amd64"
+        required: false
+        type: string
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -74,15 +79,25 @@ jobs:
         if: ${{ steps.docker-images.outputs.images != '' }}
         run: |
           IFS=',' read -ra IMAGE_ARRAY <<< "${{ steps.docker-images.outputs.images }}"
+          IFS=',' read -ra PLATFORM_ARRAY <<< "${{ inputs.platforms }}"
           exit_code=0
 
           for image in "${IMAGE_ARRAY[@]}"; do
             echo "🔍 Scanning $image..."
 
-            # Pull the image first to ensure it's available (multi-platform support)
-            docker pull --platform linux/amd64 "$image" 2>/dev/null || \
-            docker pull --platform linux/arm64 "$image" 2>/dev/null || \
-            docker pull "$image" || { echo "❌ Failed to pull $image"; exit_code=1; continue; }
+            # Pull the image first to ensure it's available (try each platform)
+            pulled=false
+            for platform in "${PLATFORM_ARRAY[@]}"; do
+              if docker pull --platform "$platform" "$image" 2>/dev/null; then
+                pulled=true
+                break
+              fi
+            done
+
+            # Fallback to platform-agnostic pull
+            if [ "$pulled" = false ]; then
+              docker pull "$image" || { echo "❌ Failed to pull $image"; exit_code=1; continue; }
+            fi
 
             # Run Trivy scan
             trivy image \

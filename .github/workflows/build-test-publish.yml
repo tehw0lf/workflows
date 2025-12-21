@@ -364,6 +364,7 @@ jobs:
       docker_meta: ${{ inputs.docker_meta }}
       registry: ${{ inputs.registry }}
       docker_namespace: ${{ inputs.docker_namespace }}
+      platforms: ${{ inputs.platforms }}
       runner: ${{ inputs.runner }}
       trivy_severity: ${{ inputs.trivy_severity }}
       trivy_exit_code: ${{ inputs.trivy_exit_code }}
