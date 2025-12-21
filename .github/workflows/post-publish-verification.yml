@@ -117,10 +117,13 @@ jobs:
               docker pull "$image" || { echo "❌ Failed to pull $image"; exit_code=1; continue; }
             fi
 
+            # Create sanitized filename (replace : and / with -)
+            sanitized_name=$(echo "${image}" | tr ':/' '--')
+
             # Run Trivy scan
             trivy image \
               --format sarif \
-              --output "trivy-image-${image##*/}.sarif" \
+              --output "trivy-image-${sanitized_name}.sarif" \
               --severity "${{ inputs.trivy_severity }}" \
               --exit-code "${{ inputs.trivy_exit_code }}" \
               "$image" || exit_code=$?
@@ -140,22 +143,10 @@ jobs:
       # Upload SARIF results to GitHub Security
       - name: upload trivy image SARIF
         if: always() && steps.trivy-image.outcome != 'skipped'
-        run: |
-          # Find all SARIF files and upload them
-          for sarif_file in trivy-image-*.sarif; do
-            if [ -f "$sarif_file" ]; then
-              echo "📤 Uploading $sarif_file"
-              gh api \
-                --method POST \
-                -H "Accept: application/vnd.github+json" \
-                /repos/${{ github.repository }}/code-scanning/sarifs \
-                -f sarif="@$sarif_file" \
-                -f commit_sha="${{ github.sha }}" \
-                -f ref="${{ github.ref }}" || true
-            fi
-          done
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image-*.sarif
+          category: trivy-published-images
         continue-on-error: true
 
       # Upload scan reports as artifacts
