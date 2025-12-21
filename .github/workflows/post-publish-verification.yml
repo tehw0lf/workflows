@@ -50,10 +50,6 @@ jobs:
     outputs:
       trivy_image_result: ${{ steps.trivy-image.outcome }}
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
       # Authenticate to GHCR for pulling images
       - name: log in to GitHub Container Registry
         if: ${{ inputs.registry == 'ghcr.io' && inputs.docker_meta != '' }}
@@ -83,7 +79,9 @@ jobs:
           for image in "${IMAGE_ARRAY[@]}"; do
             echo "🔍 Scanning $image..."
 
-            # Pull the image first to ensure it's available
+            # Pull the image first to ensure it's available (multi-platform support)
+            docker pull --platform linux/amd64 "$image" 2>/dev/null || \
+            docker pull --platform linux/arm64 "$image" 2>/dev/null || \
             docker pull "$image" || { echo "❌ Failed to pull $image"; exit_code=1; continue; }
 
             # Run Trivy scan
