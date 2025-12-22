@@ -102,7 +102,7 @@ jobs:
       - name: grype filesystem scan
         id: grype
         if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
-        uses: anchore/scan-action@v5
+        uses: anchore/scan-action@v7
         with:
           path: "${{ inputs.artifact_path }}"
           fail-build: true
