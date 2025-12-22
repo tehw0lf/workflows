@@ -47,7 +47,7 @@ jobs:
       security-events: write
       actions: read
     outputs:
-      semgrep_result: ${{ steps.semgrep.outcome }}
+      semgrep_result: ${{ steps.semgrep-check.outcome }}
       bandit_result: ${{ steps.bandit.outcome }}
       npm_audit_result: ${{ steps.npm-audit.outcome }}
       pip_audit_result: ${{ steps.pip-audit.outcome }}
@@ -73,7 +73,37 @@ jobs:
       - name: semgrep security scan
         id: semgrep
         run: semgrep ci --config=${{ inputs.semgrep_rules }} --sarif > semgrep.sarif
-        continue-on-error: false
+        continue-on-error: true
+
+      - name: check semgrep results for unsuppressed findings
+        id: semgrep-check
+        if: always()
+        run: |
+          # Check if semgrep.sarif exists and has findings
+          if [ ! -f semgrep.sarif ]; then
+            echo "No SARIF file generated, failing..."
+            exit 1
+          fi
+
+          # Extract findings that are NOT suppressed
+          unsuppressed_count=$(jq '[.runs[].results[] | select(.suppressions == null or .suppressions == [])] | length' semgrep.sarif)
+          total_count=$(jq '[.runs[].results[]] | length' semgrep.sarif)
+          suppressed_count=$((total_count - unsuppressed_count))
+
+          echo "Total findings: $total_count"
+          echo "Suppressed findings: $suppressed_count"
+          echo "Unsuppressed findings: $unsuppressed_count"
+
+          if [ "$unsuppressed_count" -gt 0 ]; then
+            echo "❌ Found $unsuppressed_count unsuppressed security findings that must be fixed"
+            exit 1
+          elif [ "$suppressed_count" -gt 0 ]; then
+            echo "✅ All $suppressed_count findings are suppressed with nosemgrep comments"
+            exit 0
+          else
+            echo "✅ No security findings detected"
+            exit 0
+          fi
 
       - name: upload semgrep SARIF
         if: always()
