@@ -106,7 +106,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: "adopt"
-          java-version: "21"
+          java-version: "lts"
 
       - name: set up android sdk
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
