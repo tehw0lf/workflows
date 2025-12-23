@@ -131,7 +131,7 @@ jobs:
 
       - name: upload SBOM artifact
         if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-npm-libraries
           path: ${{ inputs.root_dir }}/sbom/
