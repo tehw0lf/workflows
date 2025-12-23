@@ -68,7 +68,7 @@ jobs:
       - name: cache trivy installation
         id: cache-trivy
         if: ${{ inputs.docker_meta != '' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /usr/local/bin/trivy
