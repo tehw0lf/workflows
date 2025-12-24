@@ -109,11 +109,7 @@ jobs:
           mkdir -p sbom
 
           # Generate SBOM using GitHub's SBOM tool
-          if [[ "$SBOM_FORMAT" == "spdx" ]]; then
-            npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.spdx.json --spec-version 2.3 --output-format JSON
-          else
-            npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.4
-          fi
+          npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
 
           echo "::notice::[SBOM] SBOM generated successfully"
         env:
