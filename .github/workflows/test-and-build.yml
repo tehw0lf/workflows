@@ -93,6 +93,16 @@ on:
         default: ""
         required: false
         type: string
+      enable_sbom_attestation:
+        description: "enable SBOM generation and attestation"
+        required: false
+        type: string
+        default: "true"
+      sbom_format:
+        description: "SBOM format - spdx or cyclonedx"
+        required: false
+        type: string
+        default: "cyclonedx"
 
 jobs:
   test_and_build:
@@ -191,6 +201,40 @@ jobs:
       - name: install with ${{ inputs.tool }}
         if: ${{ inputs.tool != 'none' && inputs.tool != 'npm' && inputs.tool != 'yarn' }}
         run: ${{ inputs.tool }} ${{ inputs.install }}
+
+      - name: generate SBOM
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        run: |
+          echo "::notice::[SBOM] Generating SBOM in $SBOM_FORMAT format"
+
+          # Create SBOM directory
+          mkdir -p sbom
+
+          # Generate SBOM using GitHub's SBOM tool
+          npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
+
+          echo "::notice::[SBOM] SBOM generated successfully"
+        env:
+          TOOL: ${{ inputs.tool }}
+          SBOM_FORMAT: ${{ inputs.sbom_format }}
+
+      - name: attest SBOM
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        uses: actions/attest-sbom@v3
+        with:
+          subject-path: |
+            ${{ inputs.root_dir }}/sbom/sbom.*.json
+          sbom-path: |
+            ${{ inputs.root_dir }}/sbom/sbom.*.json
+
+      - name: upload SBOM artifact
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: sbom-npm-libraries
+          path: ${{ inputs.root_dir }}/sbom/
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: format
         if: ${{ inputs.tool != 'none' && inputs.format != '' }}
