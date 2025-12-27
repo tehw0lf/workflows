@@ -216,6 +216,11 @@ on:
         default: ""
         required: false
         type: string
+      sbom_package_lock_only:
+        description: "Use --package-lock-only flag for SBOM generation (avoids npm ls validation issues with overrides)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   lint:
