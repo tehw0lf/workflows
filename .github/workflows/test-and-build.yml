@@ -103,6 +103,11 @@ on:
         required: false
         type: string
         default: "cyclonedx"
+      sbom_package_lock_only:
+        description: "Use --package-lock-only flag for SBOM generation (avoids npm ls validation issues with overrides)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test_and_build:
@@ -210,8 +215,13 @@ jobs:
           # Create SBOM directory
           mkdir -p sbom
 
-          # Generate SBOM using GitHub's SBOM tool
-          npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
+          # Generate SBOM using CycloneDX tool
+          if [ "${{ inputs.sbom_package_lock_only }}" = "true" ]; then
+            echo "::notice::[SBOM] Using --package-lock-only flag"
+            npx @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
+          else
+            npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
+          fi
 
           echo "::notice::[SBOM] SBOM generated successfully"
         env:
