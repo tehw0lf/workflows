@@ -216,8 +216,8 @@ on:
         default: ""
         required: false
         type: string
-      sbom_package_lock_only:
-        description: "Use --package-lock-only flag for SBOM generation (avoids npm ls validation issues with overrides)"
+      cyclonedx_ignore_npm_errors:
+        description: "Use --ignore-npm-errors flag for SBOM generation (avoids npm ls validation issues with overrides)"
         required: false
         type: boolean
         default: false
@@ -260,6 +260,7 @@ jobs:
       enable_rustfmt: ${{ inputs.enable_rustfmt }}
       clippy_args: ${{ inputs.clippy_args }}
       cargo_features: ${{ inputs.cargo_features }}
+      cyclonedx_ignore_npm_errors: ${{ inputs.cyclonedx_ignore_npm_errors }}
 
   security_scan_artifacts:
     if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' }}
