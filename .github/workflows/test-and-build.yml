@@ -98,11 +98,6 @@ on:
         required: false
         type: string
         default: "true"
-      sbom_format:
-        description: "SBOM format - spdx or cyclonedx"
-        required: false
-        type: string
-        default: "cyclonedx"
       cyclonedx_ignore_npm_errors:
         description: "Use --package-lock-only flag for SBOM generation (avoids npm ls validation issues with overrides)"
         required: false
@@ -218,31 +213,28 @@ jobs:
           # Generate SBOM using CycloneDX tool
           if [ "${{ inputs.cyclonedx_ignore_npm_errors }}" = "true" ]; then
             echo "::notice::[SBOM] Using --ignore-npm-errors flag"
-            npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
+            npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
           else
-            npx @cyclonedx/cyclonedx-npm --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
+            npx @cyclonedx/cyclonedx-npm --output-file ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
           fi
 
           echo "::notice::[SBOM] SBOM generated successfully"
         env:
           TOOL: ${{ inputs.tool }}
-          SBOM_FORMAT: ${{ inputs.sbom_format }}
 
       - name: attest SBOM
         if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
         uses: actions/attest-sbom@v3
         with:
-          subject-path: |
-            ${{ inputs.root_dir }}/sbom/sbom.*.json
-          sbom-path: |
-            ${{ inputs.root_dir }}/sbom/sbom.*.json
+          subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+          sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
 
       - name: upload SBOM artifact
         if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
         uses: actions/upload-artifact@v6
         with:
           name: sbom-npm-libraries
-          path: ${{ inputs.root_dir }}/sbom/
+          path: ${{ inputs.root_dir }}/sbom
           retention-days: 90
           if-no-files-found: warn
 
