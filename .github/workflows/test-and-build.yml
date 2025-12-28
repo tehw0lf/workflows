@@ -223,22 +223,6 @@ jobs:
         env:
           TOOL: ${{ inputs.tool }}
 
-      - name: attest SBOM
-        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/attest-sbom@v3
-        with:
-          subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
-          sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
-
-      - name: upload SBOM artifact
-        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: sbom-npm-libraries
-          path: ${{ inputs.root_dir }}/sbom
-          retention-days: 90
-          if-no-files-found: warn
-
       - name: format
         if: ${{ inputs.tool != 'none' && inputs.format != '' }}
         run: ${{ inputs.tool }} ${{ inputs.format }}
@@ -319,6 +303,22 @@ jobs:
       - name: post build script on main
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
         run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
+
+      - name: attest SBOM
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        uses: actions/attest-sbom@v3
+        with:
+          subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+          sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
+
+      - name: upload SBOM artifact
+        if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: sbom-npm-libraries
+          path: ${{ inputs.root_dir }}/sbom
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: upload build artifact (from artifact_path)
         if: ${{ github.event_name == 'push' && inputs.artifact_path != '' }}
