@@ -111,6 +111,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       actions: write
+      attestations: write
       id-token: write
       contents: read
       packages: read
