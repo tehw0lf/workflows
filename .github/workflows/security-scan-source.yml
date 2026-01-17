@@ -125,14 +125,12 @@ jobs:
           bandit -r . --exit-zero --severity-level medium
         continue-on-error: false
 
-      - name: install pip-audit
-        if: ${{ inputs.tool == 'uv' }}
-        run: pip install pip-audit
-
       - name: pip-audit dependency scan
-        id: pip-audit
         if: ${{ inputs.tool == 'uv' }}
-        run: pip-audit --require-hashes --disable-pip
+        id: pip-audit
+        uses: pypa/gh-action-pip-audit@v1.0.0
+        with:
+          inputs: requirements.txt
         continue-on-error: false
 
       # Layer 1c: Node.js-specific scanning
