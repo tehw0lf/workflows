@@ -216,6 +216,11 @@ on:
         default: ""
         required: false
         type: string
+      cargo_publish_flags:
+        description: "additional flags to pass to cargo publish command"
+        default: ""
+        required: false
+        type: string
       cyclonedx_ignore_npm_errors:
         description: "Use --ignore-npm-errors flag for SBOM generation (avoids npm ls validation issues with overrides)"
         required: false
@@ -361,6 +366,7 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       package_name: ${{ inputs.cargo_package_name }}
       dry_run: ${{ inputs.cargo_dry_run }}
+      publish_flags: ${{ inputs.cargo_publish_flags }}
 
   post_publish_verification:
     if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' && inputs.docker_meta != '' }}

@@ -28,7 +28,11 @@ on:
         default: false
         required: false
         type: boolean
-
+      publish_flags:
+        description: "additional flags to pass to cargo publish command"
+        default: ""
+        required: false
+        type: string
 jobs:
   publish_crates_io:
     name: publish to crates.io
@@ -120,7 +124,7 @@ jobs:
         if: ${{ inputs.dry_run == true && steps.version_check.outputs.already_published == 'false' }}
         run: |
           echo "::notice::[crates.io] Running dry-run for ${{ steps.package_info.outputs.name }} v${{ steps.version_check.outputs.version }}"
-          cargo publish --dry-run
+          cargo publish --dry-run ${{ inputs.publish_flags }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
@@ -128,6 +132,6 @@ jobs:
         if: ${{ inputs.dry_run == false && steps.version_check.outputs.already_published == 'false' }}
         run: |
           echo "::notice::[crates.io] Publishing ${{ steps.package_info.outputs.name }} v${{ steps.version_check.outputs.version }} using OIDC Trusted Publishing"
-          cargo publish
+          cargo publish ${{ inputs.publish_flags }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
