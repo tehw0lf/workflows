@@ -271,17 +271,6 @@ jobs:
           CARGO_FEATURES: ${{ inputs.cargo_features }}
           CLIPPY_ARGS: ${{ inputs.clippy_args }}
 
-      - name: build cargo release
-        if: ${{ inputs.tool == 'cargo' }}
-        run: |
-          if [[ -n "$CARGO_FEATURES" ]]; then
-            cargo build --release --features "$CARGO_FEATURES"
-          else
-            cargo build --release
-          fi
-        env:
-          CARGO_FEATURES: ${{ inputs.cargo_features }}
-
       - name: build on branch
         if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}
         run: ${{ inputs.tool }} ${{ inputs.build_branch }}
