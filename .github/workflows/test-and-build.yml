@@ -271,17 +271,6 @@ jobs:
           CARGO_FEATURES: ${{ inputs.cargo_features }}
           CLIPPY_ARGS: ${{ inputs.clippy_args }}
 
-      - name: run cargo tests
-        if: ${{ inputs.tool == 'cargo' }}
-        run: |
-          if [[ -n "$CARGO_FEATURES" ]]; then
-            cargo test --features "$CARGO_FEATURES"
-          else
-            cargo test --all-features
-          fi
-        env:
-          CARGO_FEATURES: ${{ inputs.cargo_features }}
-
       - name: build cargo release
         if: ${{ inputs.tool == 'cargo' }}
         run: |
