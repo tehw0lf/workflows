@@ -128,7 +128,7 @@ jobs:
       - name: pip-audit dependency scan
         if: ${{ inputs.tool == 'uv' }}
         id: pip-audit
-        uses: pypa/gh-action-pip-audit@v1.0.0
+        uses: pypa/gh-action-pip-audit@v1.1.0
         with:
           inputs: requirements.txt
         continue-on-error: false
