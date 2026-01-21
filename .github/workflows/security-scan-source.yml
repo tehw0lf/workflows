@@ -130,7 +130,7 @@ jobs:
         id: pip-audit
         uses: pypa/gh-action-pip-audit@v1.1.0
         with:
-          inputs: requirements.txt
+          inputs: ${{ inputs.root_dir }}
         continue-on-error: false
 
       # Layer 1c: Node.js-specific scanning
