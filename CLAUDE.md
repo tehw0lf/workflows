@@ -43,7 +43,7 @@ The main orchestrator that:
 
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
-- Sets up language-specific environments (Node.js v24.12.0, Python via pyproject.toml, Java 21)
+- Sets up language-specific environments (Node.js v24.13.0, Python via pyproject.toml, Java 21)
 - Implements comprehensive caching for dependencies across all tools (tool-specific cache keys)
 - Supports Nx monorepos with SHA optimization
 - Handles Playwright E2E testing automatically (supports .ts, .js, and .mjs config variants)
@@ -294,7 +294,7 @@ Publishing only occurs on:
 
 ### Multi-language Support
 The workflows dynamically adapt based on `tool` parameter:
-- **npm/yarn**: Node.js v24.12.0, package-lock.json/yarn.lock caching
+- **npm/yarn**: Node.js v24.13.0, package-lock.json/yarn.lock caching
 - **uv**: Python setup from pyproject.toml, uv.lock caching
 - **./gradlew**: JDK 21 Temurin, Gradle caching
 - **mvn**: JDK 21 Temurin, Maven repository caching

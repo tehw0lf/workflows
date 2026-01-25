@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-node@v6
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
-          node-version: "24.12.0"
+          node-version: "24.13.0"
           cache: "${{ inputs.tool }}"
 
       - name: install with npm
