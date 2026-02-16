@@ -80,7 +80,7 @@ jobs:
       - name: trivy filesystem scan
         id: trivy-fs
         if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         with:
           scan-type: "fs"
           scan-ref: "${{ inputs.artifact_path }}"
