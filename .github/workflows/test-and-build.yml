@@ -285,7 +285,7 @@ jobs:
 
       - name: attest SBOM
         if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/attest-sbom@v3
+        uses: actions/attest-sbom@v4
         with:
           subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
           sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
