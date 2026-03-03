@@ -152,7 +152,7 @@ jobs:
       # Upload scan reports as artifacts
       - name: upload security scan reports
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: post-publish-verification-reports
           path: trivy-image-*.sarif
