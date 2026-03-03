@@ -71,7 +71,7 @@ jobs:
       # Download build artifacts for scanning
       - name: download build artifact
         if: ${{ steps.check-artifact.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: build
           path: ${{ inputs.artifact_path }}
