@@ -26,11 +26,6 @@ on:
         default: "none"
         required: false
         type: string
-      release_tag:
-        description: "release tag"
-        default: "latest"
-        required: false
-        type: string
 
 jobs:
   release_android_apk:
@@ -138,11 +133,34 @@ jobs:
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
 
+      - name: extract version from package.json
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        run: |
+          VERSION=$(jq -r .version package.json)
+          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+            echo "::error::[Release] Could not extract version from package.json (got: '${VERSION}')"
+            exit 1
+          fi
+          echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
+          echo "::notice::[Release] Extracted version: v${VERSION}"
+
+      - name: check if release already exists
+        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        run: |
+          if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
+            echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
+            echo "::error::[Release] Bump the version in package.json to create a new release"
+            exit 3
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: softprops/action-gh-release@v2
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ inputs.release_tag }}
-          name: "Release ${{ inputs.release_tag }}"
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "Release ${{ env.RELEASE_TAG }}"
+          generate_release_notes: true
           files: |
             ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk

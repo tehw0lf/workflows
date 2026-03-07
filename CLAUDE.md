@@ -267,23 +267,23 @@ Key input parameters across workflows:
 - `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
 - `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
-- `overwrite_release`: Enables non-semver workflows by deleting and recreating releases (default: false)
 - Platform-specific metadata (docker_meta, addon_guid, etc.)
 
-#### Release Overwrite Feature
-The `overwrite_release` parameter enables non-semver release workflows:
-- **Use case**: Projects using fixed tags like `latest`, `v1.0.0`, or date-based tags
-- **Behavior**: When `true`, deletes existing release and tag before creating new one
-- **Default**: `false` (prevents accidental overwrites, fails with error if release exists)
-- **Security**: Requires `contents: write` permission (already granted in release workflow)
-- **Example usage**:
-  ```yaml
-  uses: ./.github/workflows/build-test-publish.yml
-  with:
-    publish_github_release: "true"
-    release_tag: "latest"
-    overwrite_release: "true"  # Enables fixed-tag releases
-  ```
+#### GitHub Release Versioning
+Releases use automatic version extraction from the project manifest — no `release_tag` input needed:
+- **npm/yarn**: reads `version` from `package.json` via `jq`
+- **uv**: reads `version` from `pyproject.toml` (falls back to `version.json` in artifact path)
+- **other tools**: not supported for GitHub releases (fails with clear error)
+
+The pipeline tags `vX.Y.Z` and creates the release. If the tag already exists, the workflow fails — bump the version in the manifest to create a new release.
+
+**Example usage:**
+```yaml
+uses: ./.github/workflows/build-test-publish.yml
+with:
+  publish_github_release: "true"
+  # No release_tag needed — version is read from package.json / pyproject.toml
+```
 
 ### Publishing Triggers
 Publishing only occurs on:
@@ -314,7 +314,7 @@ The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
 - Ensures security patches are applied promptly
 - Reduces manual maintenance burden
 
-### Recent Optimizations (Phase 1-7)
+### Recent Optimizations (Phase 1-8)
 Key improvements made to the workflow suite:
 1. **Artifact clarity**: Added descriptive suffixes to artifact uploads
 2. **Output cleanup**: Removed unused workflow outputs
@@ -326,6 +326,7 @@ Key improvements made to the workflow suite:
 8. **OIDC Integration**: Migrated npm and Python publishing to Trusted Publishing (eliminates NPM_TOKEN and UV_TOKEN secret requirements)
 9. **Security Scanning**: Implemented triple-layer defense-in-depth security with free open-source tools (Semgrep, Bandit, pip-audit, npm audit, Trivy, Grype)
 10. **Post-Publish Verification**: Added dedicated workflow to scan published Docker images from registry (prevents timing issues and authentication failures)
+11. **Automatic release versioning**: Removed `release_tag` and `overwrite_release` inputs; version is now read from the manifest (package.json / pyproject.toml) and used as the git tag — forces proper semver and auto-generates release notes
 
 ### Known Correct Patterns (Do Not Change)
 These patterns are intentionally designed and verified as correct:

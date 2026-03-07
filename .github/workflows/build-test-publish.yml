@@ -146,19 +146,9 @@ on:
         default: "true"
         required: false
         type: string
-      release_tag:
-        description: "release tag"
-        default: "latest"
-        required: false
-        type: string
       release_pre:
         description: "run before performing github release"
         default: ""
-        required: false
-        type: string
-      overwrite_release:
-        description: "delete existing release and recreate (enables non-semver workflows)"
-        default: "false"
         required: false
         type: string
       enable_security_scanning:
@@ -339,7 +329,6 @@ jobs:
       app_root: ${{ inputs.app_root }}
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
-      release_tag: ${{ inputs.release_tag }}
     secrets:
       ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
 
@@ -352,9 +341,7 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
       publish_github_release: ${{ inputs.publish_github_release }}
-      release_tag: ${{ inputs.release_tag }}
       release_pre: ${{ inputs.release_pre }}
-      overwrite_release: ${{ inputs.overwrite_release }}
 
   publish_crates_io:
     if: ${{ github.event_name == 'push' && inputs.tool == 'cargo' }}
