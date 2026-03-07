@@ -43,6 +43,11 @@ on:
         default: ""
         required: false
         type: string
+      tool:
+        description: "build tool - uv, npm, yarn, cargo, etc."
+        default: "none"
+        required: false
+        type: string
 
 jobs:
   publish_docker_image:
@@ -89,6 +94,26 @@ jobs:
           name: build
           path: ${{ inputs.artifact_path }}
 
+      - name: extract version for docker tag
+        if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
+        run: |
+          if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
+            VERSION=$(jq -r .version package.json)
+          elif [[ "${{ inputs.tool }}" == "uv" ]]; then
+            VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
+            VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          elif [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9] ]]; then
+            VERSION="${{ github.ref_name }}"
+          fi
+
+          if [[ -n "${VERSION}" && "${VERSION}" != "null" ]]; then
+            echo "DOCKER_VERSION_TAG=v${VERSION#v}" >> $GITHUB_ENV
+            echo "::notice::[Docker] Version tag: v${VERSION#v}"
+          else
+            echo "::notice::[Docker] No version found, publishing latest only"
+          fi
+
       - name: run docker pre script
         if: ${{ inputs.docker_pre != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') }}
         run: ${{ inputs.docker_pre }}
@@ -113,4 +138,6 @@ jobs:
           file: ${{ matrix.docker.file }}
           push: true
           platforms: ${{ inputs.platforms }}
-          tags: ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ matrix.docker.name }}:latest
+          tags: |
+            ${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ matrix.docker.name }}:latest
+            ${{ env.DOCKER_VERSION_TAG != '' && format('{0}/{1}/{2}:{3}', inputs.registry, inputs.docker_namespace, matrix.docker.name, env.DOCKER_VERSION_TAG) || '' }}
