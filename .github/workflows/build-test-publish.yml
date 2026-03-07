@@ -340,7 +340,6 @@ jobs:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
-      publish_github_release: ${{ inputs.publish_github_release }}
       release_pre: ${{ inputs.release_pre }}
 
   publish_crates_io:

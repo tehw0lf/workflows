@@ -273,6 +273,7 @@ Key input parameters across workflows:
 Releases use automatic version extraction from the project manifest — no `release_tag` input needed:
 - **npm/yarn**: reads `version` from `package.json` via `jq`
 - **uv**: reads `version` from `pyproject.toml` (falls back to `version.json` in artifact path)
+- **cargo**: reads `version` from `Cargo.toml` via `grep`
 - **other tools**: not supported for GitHub releases (fails with clear error)
 
 The pipeline tags `vX.Y.Z` and creates the release. If the tag already exists, the workflow fails — bump the version in the manifest to create a new release.
