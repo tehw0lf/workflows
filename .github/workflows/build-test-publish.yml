@@ -92,10 +92,6 @@ on:
         required: false
         type: string
         default: "ghcr.io"
-      event_name:
-        description: "github event name"
-        required: true
-        type: string
       docker_pre:
         description: "run before building docker image"
         default: ""
@@ -282,6 +278,7 @@ jobs:
       registry: ${{ inputs.registry }}
       docker_namespace: ${{ inputs.docker_namespace }}
       docker_pre: ${{ inputs.docker_pre }}
+      tool: ${{ inputs.tool }}
 
   publish_npm_libraries:
     if: ${{ github.event_name == 'push' && inputs.library_path != '' }}
