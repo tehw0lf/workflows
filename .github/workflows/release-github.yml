@@ -18,11 +18,6 @@ on:
         default: "none"
         required: false
         type: string
-      publish_github_release:
-        description: "publish github release"
-        default: ""
-        required: false
-        type: string
       release_pre:
         description: "run before performing github release"
         default: ""
@@ -73,9 +68,12 @@ jobs:
               echo "::error::[Release] Cannot find pyproject.toml or version.json for uv project"
               exit 1
             fi
+          elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
+            VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+            echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
           else
             echo "::error::[Release] Unsupported tool '${{ inputs.tool }}' for automatic version extraction"
-            echo "::error::[Release] Supported tools: npm, yarn, uv"
+            echo "::error::[Release] Supported tools: npm, yarn, uv, cargo"
             exit 1
           fi
 
