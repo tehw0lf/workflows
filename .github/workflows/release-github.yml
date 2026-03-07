@@ -23,19 +23,9 @@ on:
         default: ""
         required: false
         type: string
-      release_tag:
-        description: "release tag"
-        default: "latest"
-        required: false
-        type: string
       release_pre:
         description: "run before performing github release"
         default: ""
-        required: false
-        type: string
-      overwrite_release:
-        description: "delete existing release and recreate (enables non-semver workflows)"
-        default: "false"
         required: false
         type: string
 
@@ -65,55 +55,58 @@ jobs:
           name: build
           path: ${{ inputs.artifact_path }}
 
-      - name: set automatic release tag for python release from pyproject.toml
-        if: ${{ inputs.tool == 'uv' && steps.check_artifact_exists.outputs.exists == 'true' && hashFiles('pyproject.toml') != '' }}
-        run: echo "RELEASE_TAG=v$(cat pyproject.toml | grep version | awk -F '"' '{print $2}')" >> $GITHUB_ENV
+      - name: extract version from manifest
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        id: extract_version
+        run: |
+          if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
+            VERSION=$(jq -r .version package.json)
+            echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
+          elif [[ "${{ inputs.tool }}" == "uv" ]]; then
+            if [[ -f pyproject.toml ]]; then
+              VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+              echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
+            elif [[ -f "${{ inputs.artifact_path }}/version.json" ]]; then
+              VERSION=$(jq -r .version "${{ inputs.artifact_path }}/version.json")
+              echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
+            else
+              echo "::error::[Release] Cannot find pyproject.toml or version.json for uv project"
+              exit 1
+            fi
+          else
+            echo "::error::[Release] Unsupported tool '${{ inputs.tool }}' for automatic version extraction"
+            echo "::error::[Release] Supported tools: npm, yarn, uv"
+            exit 1
+          fi
 
-      - name: set automatic release tag for python release from version file
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && hashFiles(format('{0}/version.json', inputs.artifact_path)) != '' }}
-        run: echo "RELEASE_TAG=v$(cat ${{ inputs.artifact_path }}/version.json | grep version | awk -F '"' '{print $4}')" >> $GITHUB_ENV
-
-      - name: use input release tag if none is set yet
-        if: ${{ env.RELEASE_TAG == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: echo "RELEASE_TAG=${{ inputs.release_tag }}" >> $GITHUB_ENV
+          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+            echo "::error::[Release] Could not extract version from manifest (got: '${VERSION}')"
+            exit 1
+          fi
+          echo "::notice::[Release] Extracted version: v${VERSION}"
 
       - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: check_release_exists
         run: |
           if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            if [[ "${{ inputs.overwrite_release }}" == "true" ]]; then
-              echo "::notice::[Release] Release with tag ${{ env.RELEASE_TAG }} exists, will be overwritten"
-            else
-              echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
-              echo "::error::[Release] Cannot create duplicate release (set overwrite_release: true to replace)"
-              exit 3
-            fi
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
+            echo "::error::[Release] Bump the version in the manifest to create a new release"
+            exit 3
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: delete existing release if overwrite is enabled
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.exists == 'true' && inputs.overwrite_release == 'true' }}
-        run: |
-          echo "::notice::[Release] Deleting existing release: ${{ env.RELEASE_TAG }}"
-          gh release delete ${{ env.RELEASE_TAG }} --yes --cleanup-tag
-          echo "::notice::[Release] Successfully deleted release and tag"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: run release pre script if present
-        if: ${{ inputs.release_pre != '' && (steps.check_release_exists.outputs.exists == 'false' || inputs.overwrite_release == 'true') }}
+        if: ${{ inputs.release_pre != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         run: ${{ inputs.release_pre }}
 
       - uses: softprops/action-gh-release@v2
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && (steps.check_release_exists.outputs.exists == 'false' || inputs.overwrite_release == 'true') }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ env.RELEASE_TAG }}
           name: "Release ${{ env.RELEASE_TAG }}"
+          generate_release_notes: true
           files: |
             ${{ inputs.artifact_path }}/**/*
