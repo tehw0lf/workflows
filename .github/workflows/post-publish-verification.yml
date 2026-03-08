@@ -73,14 +73,14 @@ jobs:
           path: |
             /usr/local/bin/trivy
             ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-${{ hashFiles('**/post-publish-verification.yml') }}
+          key: ${{ runner.os }}-trivy-v0.69.3
           restore-keys: |
             ${{ runner.os }}-trivy-
 
       - name: install trivy
         if: ${{ inputs.docker_meta != '' && steps.cache-trivy.outputs.cache-hit != 'true' }}
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.58.2
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.69.3
 
       # Extract image names from docker_meta
       - name: extract docker image names
