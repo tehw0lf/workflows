@@ -23,6 +23,11 @@ on:
         default: "auto"
         required: false
         type: string
+      npm_audit_omit_dev:
+        description: "omit dev dependencies from npm audit (use when dev-only vulns have no upstream fix)"
+        default: false
+        required: false
+        type: boolean
     outputs:
       semgrep_result:
         description: "semgrep scan result"
@@ -147,7 +152,7 @@ jobs:
       - name: npm audit
         id: npm-audit
         if: ${{ inputs.tool == 'npm' }}
-        run: npm audit --audit-level=moderate
+        run: npm audit --audit-level=moderate${{ inputs.npm_audit_omit_dev && ' --omit=dev' || '' }}
         continue-on-error: false
 
       - name: yarn audit

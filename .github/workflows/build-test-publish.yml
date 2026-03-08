@@ -157,6 +157,11 @@ on:
         default: "auto"
         required: false
         type: string
+      npm_audit_omit_dev:
+        description: "omit dev dependencies from npm audit (use when dev-only vulns have no upstream fix)"
+        default: false
+        required: false
+        type: boolean
       trivy_severity:
         description: "minimum severity level for trivy (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
         default: "MEDIUM,HIGH,CRITICAL"
@@ -225,6 +230,7 @@ jobs:
       tool: ${{ inputs.tool }}
       runner: ${{ inputs.runner }}
       semgrep_rules: ${{ inputs.semgrep_rules }}
+      npm_audit_omit_dev: ${{ inputs.npm_audit_omit_dev }}
   test_and_build:
     needs: [lint, security_scan_source]
     if: |
