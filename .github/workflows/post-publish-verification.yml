@@ -91,7 +91,7 @@ jobs:
           echo "images=$images" >> $GITHUB_OUTPUT
           echo "📦 Images to scan: $images"
 
-      # Scan each published Docker image
+      # Scan each published Docker image directly from registry
       - name: trivy image scan
         id: trivy-image
         if: ${{ steps.docker-images.outputs.images != '' }}
@@ -103,29 +103,19 @@ jobs:
           for image in "${IMAGE_ARRAY[@]}"; do
             echo "🔍 Scanning $image..."
 
-            # Pull the image first to ensure it's available (try each platform)
-            pulled=false
-            for platform in "${PLATFORM_ARRAY[@]}"; do
-              if docker pull --platform "$platform" "$image" 2>/dev/null; then
-                pulled=true
-                break
-              fi
-            done
-
-            # Fallback to platform-agnostic pull
-            if [ "$pulled" = false ]; then
-              docker pull "$image" || { echo "❌ Failed to pull $image"; exit_code=1; continue; }
-            fi
+            # Use the first platform for scanning directly from registry
+            platform="${PLATFORM_ARRAY[0]}"
 
             # Create sanitized filename (replace : and / with -)
             sanitized_name=$(echo "${image}" | tr ':/' '--')
 
-            # Run Trivy scan
+            # Run Trivy scan directly from registry (no docker pull needed)
             trivy image \
               --format sarif \
               --output "trivy-image-${sanitized_name}.sarif" \
               --severity "${{ inputs.trivy_severity }}" \
               --exit-code "${{ inputs.trivy_exit_code }}" \
+              --platform "$platform" \
               "$image" || exit_code=$?
 
             # Generate human-readable table
@@ -133,6 +123,7 @@ jobs:
             trivy image \
               --format table \
               --severity "${{ inputs.trivy_severity }}" \
+              --platform "$platform" \
               "$image" >> $GITHUB_STEP_SUMMARY || true
             echo "" >> $GITHUB_STEP_SUMMARY
           done
