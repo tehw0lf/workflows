@@ -135,6 +135,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: check if version tag already exists
+        if: ${{ env.DOCKER_VERSION_TAG != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') }}
+        run: |
+          if docker manifest inspect "${{ inputs.registry }}/${{ inputs.docker_namespace }}/${{ matrix.docker.name }}:${{ env.DOCKER_VERSION_TAG }}" > /dev/null 2>&1; then
+            echo "::warning::[Docker] Tag ${{ env.DOCKER_VERSION_TAG }} already exists in registry, publishing latest only"
+            echo "DOCKER_VERSION_TAG=" >> $GITHUB_ENV
+          fi
+
       - name: build scan image
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
         uses: docker/build-push-action@v6
