@@ -125,7 +125,7 @@ jobs:
 
       - name: set up docker
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: login
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
