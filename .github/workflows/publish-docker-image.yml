@@ -145,7 +145,7 @@ jobs:
 
       - name: build scan image
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.docker.file }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: build and push image
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.docker.file }}
