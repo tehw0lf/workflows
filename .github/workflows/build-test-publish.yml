@@ -260,7 +260,7 @@ jobs:
       cyclonedx_ignore_npm_errors: ${{ inputs.cyclonedx_ignore_npm_errors }}
 
   security_scan_artifacts:
-    if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' }}
+    if: ${{ inputs.enable_security_scanning == 'true' }}
     needs: test_and_build
     uses: ./.github/workflows/security-scan-artifacts.yml
     with:
