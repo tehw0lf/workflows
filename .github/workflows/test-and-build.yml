@@ -201,7 +201,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: install with ${{ inputs.tool }}
-        if: ${{ inputs.tool != 'none' && inputs.tool != 'npm' && inputs.tool != 'yarn' }}
+        if: ${{ inputs.tool != 'none' && inputs.tool != 'npm' && inputs.tool != 'yarn' && inputs.install != '' }}
         run: ${{ inputs.tool }} ${{ inputs.install }}
 
       - name: generate SBOM
