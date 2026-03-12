@@ -105,14 +105,20 @@ jobs:
           echo "version=$package_version" >> $GITHUB_OUTPUT
 
           # Query crates.io API to check if version exists
-          http_code=$(curl -s -o /dev/null -w "%{http_code}" "https://crates.io/api/v1/crates/${{ steps.package_info.outputs.name }}/$package_version")
+          # User-Agent is required by crates.io API policy
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "User-Agent: github-actions/publish-crates-io" \
+            "https://crates.io/api/v1/crates/${{ steps.package_info.outputs.name }}/$package_version")
 
           if [[ "$http_code" == "200" ]]; then
             echo "::notice::[crates.io] Version $package_version of ${{ steps.package_info.outputs.name }} already published"
             echo "already_published=true" >> $GITHUB_OUTPUT
-          else
+          elif [[ "$http_code" == "404" ]]; then
             echo "::notice::[crates.io] Version $package_version of ${{ steps.package_info.outputs.name }} not yet published"
             echo "already_published=false" >> $GITHUB_OUTPUT
+          else
+            echo "::error::[crates.io] Unexpected HTTP $http_code from crates.io API — cannot determine publish status"
+            exit 1
           fi
 
       - name: authenticate with crates.io
