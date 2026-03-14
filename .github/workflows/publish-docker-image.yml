@@ -58,6 +58,7 @@ jobs:
       actions: read
       contents: write
       packages: write
+      security-events: write
     defaults:
       run:
         working-directory: ${{ inputs.root_dir }}
@@ -171,12 +172,38 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.69.3
 
       - name: trivy pre-publish scan
+        id: trivy-scan
         run: |
+          sanitized_name=$(echo "${{ matrix.docker.name }}" | tr ':/' '--')
           trivy image \
-            --format table \
+            --format sarif \
+            --output "trivy-image-${sanitized_name}.sarif" \
             --severity "MEDIUM,HIGH,CRITICAL" \
             --exit-code 1 \
             "${{ matrix.docker.name }}:scan"
+
+          # Generate human-readable summary
+          echo "### 🔍 Trivy Pre-Publish Scan Results: ${{ matrix.docker.name }}" >> $GITHUB_STEP_SUMMARY
+          trivy image \
+            --format table \
+            --severity "MEDIUM,HIGH,CRITICAL" \
+            "${{ matrix.docker.name }}:scan" >> $GITHUB_STEP_SUMMARY || true
+
+      - name: upload trivy pre-publish SARIF
+        if: always() && steps.trivy-scan.outcome != 'skipped'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image-*.sarif
+          category: trivy-pre-publish
+        continue-on-error: true
+
+      - name: upload security scan reports
+        if: always() && steps.trivy-scan.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pre-publish-scan-reports-${{ matrix.docker.name }}
+          path: trivy-image-*.sarif
+          if-no-files-found: ignore
 
       - name: build and push image
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
