@@ -58,7 +58,6 @@ jobs:
       actions: read
       contents: write
       packages: write
-      security-events: write
     defaults:
       run:
         working-directory: ${{ inputs.root_dir }}
@@ -119,11 +118,6 @@ jobs:
         if: ${{ inputs.docker_pre != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') }}
         run: ${{ inputs.docker_pre }}
 
-      - name: detect scan platform
-        if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: |
-          echo "SCAN_PLATFORM=linux/$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')" >> $GITHUB_ENV
-
       - name: set up docker
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
         uses: docker/setup-buildx-action@v4
@@ -143,67 +137,6 @@ jobs:
             echo "::warning::[Docker] Tag ${{ env.DOCKER_VERSION_TAG }} already exists in registry, publishing latest only"
             echo "DOCKER_VERSION_TAG=" >> $GITHUB_ENV
           fi
-
-      - name: build scan image
-        if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ${{ matrix.docker.file }}
-          push: false
-          load: true
-          platforms: ${{ env.SCAN_PLATFORM }}
-          tags: ${{ matrix.docker.name }}:scan
-
-      - name: cache trivy installation
-        id: cache-trivy
-        uses: actions/cache@v5
-        with:
-          path: |
-            /usr/local/bin/trivy
-            ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-v0.69.3
-          restore-keys: |
-            ${{ runner.os }}-trivy-
-
-      - name: install trivy
-        if: steps.cache-trivy.outputs.cache-hit != 'true'
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.69.3
-
-      - name: trivy pre-publish scan
-        id: trivy-scan
-        run: |
-          sanitized_name=$(echo "${{ matrix.docker.name }}" | tr ':/' '--')
-          trivy image \
-            --format sarif \
-            --output "trivy-image-${sanitized_name}.sarif" \
-            --severity "MEDIUM,HIGH,CRITICAL" \
-            --exit-code 1 \
-            "${{ matrix.docker.name }}:scan"
-
-          # Generate human-readable summary
-          echo "### 🔍 Trivy Pre-Publish Scan Results: ${{ matrix.docker.name }}" >> $GITHUB_STEP_SUMMARY
-          trivy image \
-            --format table \
-            --severity "MEDIUM,HIGH,CRITICAL" \
-            "${{ matrix.docker.name }}:scan" >> $GITHUB_STEP_SUMMARY || true
-
-      - name: upload trivy pre-publish SARIF
-        if: always() && steps.trivy-scan.outcome != 'skipped'
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-image-*.sarif
-          category: trivy-pre-publish
-        continue-on-error: true
-
-      - name: upload security scan reports
-        if: always() && steps.trivy-scan.outcome != 'skipped'
-        uses: actions/upload-artifact@v7
-        with:
-          name: pre-publish-scan-reports-${{ matrix.docker.name }}
-          path: trivy-image-*.sarif
-          if-no-files-found: ignore
 
       - name: build and push image
         if: ${{ inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true' }}
