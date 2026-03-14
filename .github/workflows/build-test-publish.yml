@@ -270,6 +270,7 @@ jobs:
       runner: ${{ inputs.runner }}
       trivy_severity: ${{ inputs.trivy_severity }}
       trivy_exit_code: ${{ inputs.trivy_exit_code }}
+      docker_meta: ${{ inputs.docker_meta }}
 
   publish_docker_image:
     if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}

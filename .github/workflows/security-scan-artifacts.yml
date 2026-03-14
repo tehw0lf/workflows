@@ -33,6 +33,11 @@ on:
         default: "1"
         required: false
         type: string
+      docker_meta:
+        description: "docker metadata as json array ([{'name':'docker-image-name','file':'docker/app/Dockerfile'}])"
+        default: ""
+        required: false
+        type: string
     outputs:
       trivy_fs_result:
         description: "trivy filesystem scan result"
@@ -134,4 +139,75 @@ jobs:
           path: |
             trivy-fs-results.sarif
             ${{ steps.grype.outputs.sarif }}
+          if-no-files-found: ignore
+
+      - name: cache trivy installation
+        if: ${{ inputs.docker_meta != '' }}
+        id: cache-trivy
+        uses: actions/cache@v5
+        with:
+          path: |
+            /usr/local/bin/trivy
+            ~/.cache/trivy
+          key: ${{ runner.os }}-trivy-v0.69.3
+          restore-keys: |
+            ${{ runner.os }}-trivy-
+
+      - name: install trivy
+        if: ${{ inputs.docker_meta != '' && steps.cache-trivy.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.69.3
+
+      - name: set up docker
+        if: ${{ inputs.docker_meta != '' }}
+        uses: docker/setup-buildx-action@v4
+
+      - name: build and scan docker images
+        if: ${{ inputs.docker_meta != '' }}
+        run: |
+          echo '${{ inputs.docker_meta }}' | jq -c '.[]' | while read -r image; do
+            name=$(echo "$image" | jq -r '.name')
+            file=$(echo "$image" | jq -r '.file')
+            sanitized_name=$(echo "$name" | tr ':/' '--')
+
+            echo "::notice::[Docker Scan] Building scan image for $name"
+            docker buildx build \
+              --file "$file" \
+              --load \
+              --platform linux/amd64 \
+              --tag "$name:scan" \
+              .
+
+            echo "::notice::[Docker Scan] Scanning $name"
+            trivy image \
+              --format sarif \
+              --output "trivy-image-${sanitized_name}.sarif" \
+              --severity "${{ inputs.trivy_severity }}" \
+              --exit-code ${{ inputs.trivy_exit_code }} \
+              "$name:scan"
+
+            echo "### 🔍 Trivy Docker Scan Results: $name" >> $GITHUB_STEP_SUMMARY
+            trivy image \
+              --format table \
+              --severity "${{ inputs.trivy_severity }}" \
+              "$name:scan" >> $GITHUB_STEP_SUMMARY || true
+
+            docker rmi "$name:scan" || true
+          done
+        id: docker-scan
+
+      - name: upload docker trivy SARIF
+        if: always() && steps.docker-scan.outcome != 'skipped'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image-*.sarif
+          category: trivy-docker-pre-publish
+        continue-on-error: true
+
+      - name: upload docker scan reports
+        if: always() && steps.docker-scan.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-scan-reports
+          path: trivy-image-*.sarif
           if-no-files-found: ignore
