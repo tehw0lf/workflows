@@ -56,21 +56,17 @@ jobs:
         run: |
           if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
             VERSION=$(jq -r .version package.json)
-            echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
           elif [[ "${{ inputs.tool }}" == "uv" ]]; then
             if [[ -f pyproject.toml ]]; then
               VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
-              echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
             elif [[ -f "${{ inputs.artifact_path }}/version.json" ]]; then
               VERSION=$(jq -r .version "${{ inputs.artifact_path }}/version.json")
-              echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
             else
               echo "::error::[Release] Cannot find pyproject.toml or version.json for uv project"
               exit 1
             fi
           elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-            echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
           else
             echo "::error::[Release] Unsupported tool '${{ inputs.tool }}' for automatic version extraction"
             echo "::error::[Release] Supported tools: npm, yarn, uv, cargo"
@@ -81,14 +77,15 @@ jobs:
             echo "::error::[Release] Could not extract version from manifest (got: '${VERSION}')"
             exit 1
           fi
+          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
           echo "::notice::[Release] Extracted version: v${VERSION}"
 
       - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: check_release_exists
         run: |
-          if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
-            echo "::error::[Release] Release with tag ${{ env.RELEASE_TAG }} already exists"
+          if gh release view ${{ steps.extract_version.outputs.release_tag }} &>/dev/null; then
+            echo "::error::[Release] Release with tag ${{ steps.extract_version.outputs.release_tag }} already exists"
             echo "::error::[Release] Bump the version in the manifest to create a new release"
             exit 3
           fi
@@ -103,8 +100,8 @@ jobs:
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: "Release ${{ env.RELEASE_TAG }}"
+          tag_name: ${{ steps.extract_version.outputs.release_tag }}
+          name: "Release ${{ steps.extract_version.outputs.release_tag }}"
           generate_release_notes: true
           files: |
             ${{ inputs.artifact_path }}/**/*
