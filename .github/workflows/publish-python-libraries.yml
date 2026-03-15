@@ -2,9 +2,6 @@ name: publish python libraries
 
 on:
   workflow_call:
-    secrets:
-      GH_PAT:
-        required: true
     inputs:
       runner:
         description: "workflow-runner"
@@ -86,4 +83,4 @@ jobs:
             echo "::notice::[PyPI] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
           fi
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
