@@ -11,6 +11,8 @@ on:
         required: false
       NX_CLOUD_ACCESS_TOKEN:
         required: false
+      GH_PAT:
+        required: false
     inputs:
       root_dir:
         description: "path to project root"
@@ -310,6 +312,8 @@ jobs:
       runner: ${{ inputs.runner }}
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
+    secrets:
+      GH_PAT: ${{ secrets.GH_PAT }}
 
   publish_firefox_extension:
     if: ${{ github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' }}
