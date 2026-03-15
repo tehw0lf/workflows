@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       actions: read
-      contents: read
+      contents: write
       packages: read
       id-token: write
     defaults:
@@ -55,24 +55,32 @@ jobs:
           echo "FAILURE_REASON=missing_artifact" >> $GITHUB_ENV
           exit 1
 
-      - name: download build artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
+      - name: extract version from pyproject.toml
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        id: extract_version
+        run: |
+          if [[ -f pyproject.toml ]]; then
+            VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          else
+            echo "::error::[PyPI] Cannot find pyproject.toml"
+            exit 1
+          fi
+          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+            echo "::error::[PyPI] Could not extract version from pyproject.toml (got: '${VERSION}')"
+            exit 1
+          fi
+          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "::notice::[PyPI] Extracted version: v${VERSION}"
 
-      - uses: astral-sh/setup-uv@v7
-        if: ${{ success() }}
-        with:
-          enable-cache: true
-          cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
-
-      - uses: actions/setup-python@v6
-        if: ${{ success() && hashFiles('pyproject.toml') != '' }}
-        with:
-          python-version-file: "pyproject.toml"
-
-      - name: publish to pypi
-        if: ${{ success() }}
-        run: uv publish
+      - name: set git tag if not yet set
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        run: |
+          if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
+            echo "::notice::[PyPI] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping"
+          else
+            git tag "${{ steps.extract_version.outputs.release_tag }}"
+            git push origin "${{ steps.extract_version.outputs.release_tag }}"
+            echo "::notice::[PyPI] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
