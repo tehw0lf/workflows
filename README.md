@@ -30,7 +30,6 @@ jobs:
       test: "run test"
       build_main: "run build"
       artifact_path: "dist"
-      event_name: ${{ github.event_name }}
       docker_meta: '[{"name":"my-app","file":"Dockerfile"}]'
       libraries: "lib1,lib2"
       library_path: "packages"
@@ -165,7 +164,7 @@ Publishes Firefox browser extensions to Mozilla Add-ons.
 - ✅ AMO (addons.mozilla.org) publishing
 - ✅ Timeout protection (15 minutes)
 
-### 7. Android APK (`release-android-apk.yml`)
+### 8. Android APK (`release-android-apk.yml`)
 
 Builds and releases Android APK files.
 
@@ -175,7 +174,7 @@ Builds and releases Android APK files.
 - ✅ GitHub releases integration
 - ✅ Timeout protection (30 minutes)
 
-### 8. GitHub Releases (`release-github.yml`)
+### 9. GitHub Releases (`release-github.yml`)
 
 Creates GitHub releases with artifacts.
 
@@ -185,7 +184,7 @@ Creates GitHub releases with artifacts.
 - ✅ Artifact attachment
 - ✅ Timeout protection (10 minutes)
 
-### 9. Workflow Summary (`summarize-workflow.yml`)
+### 10. Workflow Summary (`summarize-workflow.yml`)
 
 Aggregates and reports results from all publishing workflows.
 
@@ -196,7 +195,7 @@ Aggregates and reports results from all publishing workflows.
 - ✅ Refactored from 90 lines to 30 lines (67% reduction) using helper functions
 - ✅ Quick timeout (5 minutes)
 
-### 10. Security Scan Source (`security-scan-source.yml`)
+### 11. Security Scan Source (`security-scan-source.yml`)
 
 **Pre-build security layer** that scans source code and dependencies before building.
 
@@ -221,7 +220,7 @@ with:
 - ✅ Industry-standard tools used by major projects
 - ✅ Active maintenance and community support
 
-### 11. Security Scan Artifacts (`security-scan-artifacts.yml`)
+### 12. Security Scan Artifacts (`security-scan-artifacts.yml`)
 
 **Pre-publish security layer** that scans build artifacts before publishing.
 
@@ -233,7 +232,7 @@ with:
 - ✅ **Security gate**: Blocks publishing of vulnerable artifacts
 - ✅ Timeout protection (20 minutes)
 
-### 12. Post-Publish Verification (`post-publish-verification.yml`)
+### 13. Post-Publish Verification (`post-publish-verification.yml`)
 
 **Post-publish security layer** that verifies published Docker images.
 
@@ -563,7 +562,6 @@ jobs:
       build_main: "run build"
       artifact_path: "dist"
       library_path: "dist"
-      event_name: ${{ github.event_name }}
 ```
 
 **Note:** This example follows the pattern from `/Coding/AI/n8n/nodes/toon` which uses Trusted Publishing for npm.
@@ -583,7 +581,6 @@ with:
   docker_meta: '[{"name":"my-app","file":"Dockerfile"}]'
   docker_namespace: "mycompany"
   registry: "ghcr.io"
-  event_name: ${{ github.event_name }}
 ```
 
 ### Python Package
@@ -600,7 +597,7 @@ with:
   test: "run test"
   build_main: "build"
   artifact_path: "dist"
-  event_name: ${{ github.event_name }}
+  publish_python_libraries: "true"
 ```
 
 ### Rust Crate
@@ -637,8 +634,7 @@ jobs:
       enable_security_scanning: "true"
 
       # GitHub release configuration (optional)
-      publish_github_release: ${{ startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
-      release_tag: ${{ github.ref_name }}
+      publish_github_release: "true"
 ```
 
 **Note:** Before first publish, configure Trusted Publisher on crates.io for your repository. No secrets required!
@@ -657,7 +653,6 @@ with:
   test: "test.sh"
   build_main: "build.sh"
   artifact_path: "dist"
-  event_name: ${{ github.event_name }}
 ```
 
 ## 🔄 Workflow Dependencies

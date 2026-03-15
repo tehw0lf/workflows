@@ -134,7 +134,7 @@ on:
         type: string
       publish_python_libraries:
         description: "publish python libraries"
-        default: "true"
+        default: "false"
         required: false
         type: string
       release_pre:
