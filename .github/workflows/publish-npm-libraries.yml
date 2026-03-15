@@ -38,12 +38,6 @@ on:
         required: false
         type: string
         default: "@tehw0lf"
-      n8n_verifiable_node:
-        description: "whether this is a verifiable n8n node release"
-        required: false
-        type: string
-        default: "true"
-
 jobs:
   publish_npm_libraries:
     name: publish npm libraries
@@ -90,32 +84,8 @@ jobs:
       - name: install latest npm for OIDC support
         run: npm install -g npm@latest
 
-      - name: install @n8n/node-cli
-        if: ${{ inputs.tool == 'npm' && startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) && inputs.n8n_verifiable_node == 'true' }}
-        run: npm install -g @n8n/node-cli --ignore-scripts
-
-      - name: install dependencies for n8n release
-        if: ${{ inputs.tool == 'npm' && startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) && inputs.n8n_verifiable_node == 'true' }}
-        run: npm ci
-
-      - name: publish n8n node
-        if: ${{ inputs.tool == 'npm' && startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) && inputs.n8n_verifiable_node == 'true' }}
-        run: |
-          echo "::notice::[NPM] Publishing n8n node"
-
-          # Configure git with the commit author's information from env (set safely below)
-          echo "::notice::[GIT] Configuring git as: $COMMIT_AUTHOR_NAME <$COMMIT_AUTHOR_EMAIL>"
-          git config user.name "$COMMIT_AUTHOR_NAME"
-          git config user.email "$COMMIT_AUTHOR_EMAIL"
-
-          n8n-node release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT_AUTHOR_NAME: ${{ github.event.head_commit.author.name || 'github-actions[bot]' }}
-          COMMIT_AUTHOR_EMAIL: ${{ github.event.head_commit.author.email || 'github-actions[bot]@users.noreply.github.com' }}
-
       - name: publish multiple npm libraries
-        if: ${{ inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true' && (!startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) || (startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) && inputs.n8n_verifiable_node != 'true' ))}}
+        if: ${{ inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         run: |
           echo "::notice::[NPM] Publishing libraries: $LIBRARIES"
 
@@ -143,8 +113,8 @@ jobs:
 
             if [[ "$latest_version" != "$package_version" ]]; then
               echo "::notice::[NPM] Publishing ${library}: ${latest_version} -> ${package_version}"
-              npm publish "${LIBRARY_PATH}/${library}/" --access public --dry-run
-              npm publish "${LIBRARY_PATH}/${library}/" --access public
+              npm publish "${LIBRARY_PATH}/${library}/" --access public --provenance --dry-run
+              npm publish "${LIBRARY_PATH}/${library}/" --access public --provenance
             else
               echo "::notice::[NPM] Skipping ${library}: version ${package_version} already published"
             fi
@@ -155,7 +125,7 @@ jobs:
           LIBRARY_PATH: ${{ inputs.library_path }}
 
       - name: publish single npm library
-        if: ${{ inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true' && (!startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) || (startsWith(github.repository, format('{0}/n8n-nodes', github.repository_owner)) && inputs.n8n_verifiable_node != 'true' ))}}
+        if: ${{ inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         run: |
           path_to_package_json=$(find . -name "package.json" | head -n 1)
 
@@ -164,11 +134,11 @@ jobs:
 
           if [[ "$latest_version" != "$package_version" ]]; then
             if [[ "${LIBRARY_PATH}" == "dist" ]]; then
-              npm publish --access public --dry-run
-              npm publish --access public
+              npm publish --access public --provenance --dry-run
+              npm publish --access public --provenance
             else
-              npm publish "${LIBRARY_PATH}"/ --access public --dry-run
-              npm publish "${LIBRARY_PATH}"/ --access public
+              npm publish "${LIBRARY_PATH}"/ --access public --provenance --dry-run
+              npm publish "${LIBRARY_PATH}"/ --access public --provenance
             fi
           fi
         env:

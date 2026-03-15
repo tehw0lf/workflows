@@ -82,11 +82,6 @@ on:
         required: false
         type: string
         default: "@tehw0lf"
-      n8n_verifiable_node:
-        description: "whether this is a verifiable n8n node release"
-        required: false
-        type: string
-        default: "true"
       registry:
         description: "registry"
         required: false
@@ -299,7 +294,6 @@ jobs:
       libraries: ${{ inputs.libraries }}
       library_path: ${{ inputs.library_path }}
       npm_namespace: ${{ inputs.npm_namespace }}
-      n8n_verifiable_node: ${{ inputs.n8n_verifiable_node }}
 
   publish_python_libraries:
     if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.publish_python_libraries == 'true' }}
