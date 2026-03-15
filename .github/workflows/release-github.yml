@@ -23,6 +23,11 @@ on:
         default: ""
         required: false
         type: string
+      root_dir:
+        description: "path to project root (where the manifest file is)"
+        default: "."
+        required: false
+        type: string
 
 jobs:
   release_github:
@@ -33,6 +38,9 @@ jobs:
       actions: write
       contents: write
       packages: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v6

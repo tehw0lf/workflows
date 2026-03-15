@@ -339,6 +339,7 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
       release_pre: ${{ inputs.release_pre }}
+      root_dir: ${{ inputs.root_dir }}
 
   publish_crates_io:
     if: ${{ github.event_name == 'push' && inputs.tool == 'cargo' }}
