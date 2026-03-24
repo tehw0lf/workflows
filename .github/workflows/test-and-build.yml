@@ -188,7 +188,7 @@ jobs:
 
       - name: enable nx shas
         if: ${{ success() && hashFiles('./nx.json') != '' }}
-        uses: nrwl/nx-set-shas@v4
+        uses: nrwl/nx-set-shas@v5
         with:
           main-branch-name: main
 
