@@ -311,7 +311,6 @@ jobs:
     uses: ./.github/workflows/publish-firefox-extension.yml
     with:
       runner: ${{ inputs.runner }}
-      artifact_path: ${{ inputs.artifact_path }}
       addon_guid: ${{ inputs.addon_guid }}
       xpi_path: ${{ inputs.xpi_path }}
     secrets:

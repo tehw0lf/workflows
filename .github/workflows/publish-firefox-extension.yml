@@ -18,11 +18,6 @@ on:
         default: "ubuntu-latest"
         required: false
         type: string
-      artifact_path:
-        description: "path to artifact files to save from build step"
-        default: ""
-        required: false
-        type: string
       addon_guid:
         description: "firefox addon guid"
         default: ""
@@ -49,26 +44,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: check build artifact existence
-        uses: softwareforgood/check-artifact-v4-existence@v0
-        id: check_artifact_exists
-        with:
-          name: build
-
-      - name: download build artifact
-        if: ${{ inputs.artifact_path != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: build
-          path: ${{ inputs.artifact_path }}
-
       - name: package firefox extension
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
         shell: bash
 
       - name: publish firefox extension
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         uses: wdzeng/firefox-addon@v1.2.0
         with:
           addon-guid: ${{ inputs.addon_guid }}
