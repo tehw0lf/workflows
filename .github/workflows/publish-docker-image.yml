@@ -114,6 +114,19 @@ jobs:
             echo "::notice::[Docker] No version found, publishing latest only"
           fi
 
+      - name: set git tag if not yet set
+        if: ${{ env.DOCKER_VERSION_TAG != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') && matrix.docker == fromJson(inputs.docker_meta)[0] }}
+        run: |
+          if git ls-remote --tags origin "${{ env.DOCKER_VERSION_TAG }}" | grep -q "${{ env.DOCKER_VERSION_TAG }}"; then
+            echo "::warning::[Docker] Tag ${{ env.DOCKER_VERSION_TAG }} already exists, skipping tag creation"
+          else
+            git tag "${{ env.DOCKER_VERSION_TAG }}"
+            git push origin "${{ env.DOCKER_VERSION_TAG }}"
+            echo "::notice::[Docker] Created and pushed tag ${{ env.DOCKER_VERSION_TAG }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: run docker pre script
         if: ${{ inputs.docker_pre != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') }}
         run: ${{ inputs.docker_pre }}

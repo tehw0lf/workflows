@@ -88,24 +88,36 @@ jobs:
           echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
           echo "::notice::[Release] Extracted version: v${VERSION}"
 
+      - name: set git tag if not yet set
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        run: |
+          if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
+            echo "::warning::[Release] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping tag creation"
+          else
+            git tag "${{ steps.extract_version.outputs.release_tag }}"
+            git push origin "${{ steps.extract_version.outputs.release_tag }}"
+            echo "::notice::[Release] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: check_release_exists
         run: |
-          if gh release view ${{ steps.extract_version.outputs.release_tag }} &>/dev/null; then
-            echo "::error::[Release] Release with tag ${{ steps.extract_version.outputs.release_tag }} already exists"
-            echo "::error::[Release] Bump the version in the manifest to create a new release"
-            exit 3
+          if gh release view "${{ steps.extract_version.outputs.release_tag }}" &>/dev/null; then
+            echo "::warning::[Release] Release ${{ steps.extract_version.outputs.release_tag }} already exists, skipping"
+            echo "release_exists=true" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: run release pre script if present
-        if: ${{ inputs.release_pre != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ inputs.release_pre != '' && steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.release_exists != 'true' }}
         run: ${{ inputs.release_pre }}
 
       - uses: softprops/action-gh-release@v2
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.release_exists != 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.extract_version.outputs.release_tag }}
