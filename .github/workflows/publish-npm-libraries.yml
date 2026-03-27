@@ -81,6 +81,31 @@ jobs:
             ${{ inputs.root_dir }}/yarn.lock
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
+      - name: extract version from package.json
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
+        id: extract_version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+            echo "::warning::[NPM] Could not extract version from package.json, skipping git tag"
+          else
+            echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
+            echo "::notice::[NPM] Extracted version: v${VERSION}"
+          fi
+
+      - name: set git tag if not yet set
+        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.extract_version.outputs.release_tag != '' }}
+        run: |
+          if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
+            echo "::warning::[NPM] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping tag creation"
+          else
+            git tag "${{ steps.extract_version.outputs.release_tag }}"
+            git push origin "${{ steps.extract_version.outputs.release_tag }}"
+            echo "::notice::[NPM] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: install latest npm for OIDC support
         run: npm install -g npm@latest
 

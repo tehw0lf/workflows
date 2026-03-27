@@ -76,7 +76,7 @@ jobs:
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         run: |
           if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
-            echo "::notice::[PyPI] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping"
+            echo "::warning::[PyPI] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping tag creation"
           else
             git tag "${{ steps.extract_version.outputs.release_tag }}"
             git push origin "${{ steps.extract_version.outputs.release_tag }}"
