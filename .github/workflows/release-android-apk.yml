@@ -105,7 +105,7 @@ jobs:
 
       - name: set up android sdk
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: "build-tools;35.0.0"
 
