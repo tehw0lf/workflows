@@ -115,7 +115,7 @@ jobs:
           fi
 
       - name: set git tag if not yet set
-        if: ${{ env.DOCKER_VERSION_TAG != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') && matrix.docker == fromJson(inputs.docker_meta)[0] }}
+        if: ${{ env.DOCKER_VERSION_TAG != '' && (inputs.artifact_path == '' || steps.check_artifact_exists.outputs.exists == 'true') && matrix.docker.name == fromJson(inputs.docker_meta)[0].name }}
         run: |
           if git ls-remote --tags origin "${{ env.DOCKER_VERSION_TAG }}" | grep -q "${{ env.DOCKER_VERSION_TAG }}"; then
             echo "::warning::[Docker] Tag ${{ env.DOCKER_VERSION_TAG }} already exists, skipping tag creation"
