@@ -25,7 +25,7 @@ on:
         type: string
       platforms:
         description: "platforms to build the docker image for, separated by comma"
-        default: "linux/amd64"
+        default: "linux/amd64,linux/arm64"
         required: false
         type: string
       registry:
