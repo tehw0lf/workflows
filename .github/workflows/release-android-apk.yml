@@ -113,6 +113,7 @@ jobs:
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         run: |
           cd ${{ inputs.app_root }}/android
+          chmod +x gradlew
           ./gradlew assembleRelease
 
       - name: sign apk
