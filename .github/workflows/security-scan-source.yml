@@ -24,7 +24,8 @@ on:
         required: false
         type: string
       npm_audit_omit_dev:
-        description: "omit dev dependencies from npm audit (use when dev-only vulns have no upstream fix)"
+        description: "omit dev dependencies from npm audit (use when dev-only vulns have
+          no upstream fix)"
         default: false
         required: false
         type: boolean
@@ -41,6 +42,15 @@ on:
       pip_audit_result:
         description: "pip-audit result"
         value: ${{ jobs.scan_source.outputs.pip_audit_result }}
+      npm_audit_fix_branch:
+        description: "fix branch created for dependabot npm audit auto-fix"
+        value: ${{ jobs.dependabot-audit-fix.outputs.fix_branch }}
+      npm_audit_fix_pr:
+        description: "url of the auto-fix PR"
+        value: ${{ jobs.dependabot-audit-fix.outputs.fix_pr_url }}
+      npm_audit_clean_after_fix:
+        description: "whether audit is clean after auto-fix"
+        value: ${{ jobs.dependabot-audit-fix.outputs.audit_clean_after_fix }}
 
 jobs:
   scan_source:
@@ -69,7 +79,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.tool == 'uv' && '' || '3.12' }}
-          python-version-file: ${{ inputs.tool == 'uv' && format('{0}/pyproject.toml', inputs.root_dir) || '' }}
+          python-version-file: ${{ inputs.tool == 'uv' && format('{0}/pyproject.toml',
+            inputs.root_dir) || '' }}
 
       # Layer 1a: Semgrep SAST (all languages)
       - name: install semgrep
@@ -152,7 +163,8 @@ jobs:
       - name: npm audit
         id: npm-audit
         if: ${{ inputs.tool == 'npm' }}
-        run: npm audit --audit-level=moderate${{ inputs.npm_audit_omit_dev && ' --omit=dev' || '' }}
+        run: npm audit --audit-level=moderate${{ inputs.npm_audit_omit_dev && '
+          --omit=dev' || '' }}
         continue-on-error: false
 
       - name: yarn audit
@@ -170,3 +182,15 @@ jobs:
             ${{ inputs.root_dir }}/bandit-report.json
             ${{ inputs.root_dir }}/semgrep.sarif
           if-no-files-found: ignore
+
+  dependabot-audit-fix:
+    needs: scan_source
+    if: |
+      always()
+      && needs.scan_source.outputs.npm_audit_result == 'failure'
+      && github.actor == 'dependabot[bot]'
+    uses: ./.github/workflows/npm-audit-autofix.yml
+    with:
+      root_dir: ${{ inputs.root_dir }}
+      node_version: "24.14.0"
+      omit_dev: ${{ inputs.npm_audit_omit_dev }}

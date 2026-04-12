@@ -1,0 +1,257 @@
+name: npm audit auto-fix (Dependabot)
+
+on:
+  workflow_call:
+    inputs:
+      root_dir:
+        description: "path to project root (same as in security-scan-source)"
+        default: "."
+        required: false
+        type: string
+      node_version:
+        description: "Node.js version to use"
+        default: "24.14.0"
+        required: false
+        type: string
+      omit_dev:
+        description: "omit dev dependencies from npm audit fix (matches
+          npm_audit_omit_dev in security-scan-source)"
+        default: false
+        required: false
+        type: boolean
+      runner:
+        description: "workflow runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+    outputs:
+      fix_branch:
+        description: "name of the fix branch that was pushed"
+        value: ${{ jobs.audit_fix.outputs.fix_branch }}
+      fix_pr_url:
+        description: "URL of the opened fix PR"
+        value: ${{ jobs.audit_fix.outputs.fix_pr_url }}
+      audit_clean_after_fix:
+        description: "'true' if npm audit passes after fix, 'false' otherwise"
+        value: ${{ jobs.audit_fix.outputs.audit_clean_after_fix }}
+
+jobs:
+  audit_fix:
+    name: npm audit fix → PR on Dependabot branch
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      fix_branch: ${{ steps.meta.outputs.fix_branch }}
+      fix_pr_url: ${{ steps.open_pr.outputs.pr_url }}
+      audit_clean_after_fix: ${{ steps.verify.outputs.clean }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: "npm"
+          cache-dependency-path: ${{ inputs.root_dir }}/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: npm audit fix
+        run: |
+          set +e
+          npm audit fix${{ inputs.omit_dev && ' --omit=dev' || '' }}
+          set -e
+
+      - name: check for changes
+        id: changes
+        run: |
+          if git diff --quiet package-lock.json; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to package-lock.json – remaining findings need a manual major update or have no fix yet"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: verify audit after fix
+        id: verify
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          set +e
+          npm audit --audit-level=moderate${{ inputs.omit_dev && ' --omit=dev' || '' }} --json > /tmp/audit-after.json
+          AUDIT_EXIT=$?
+          set -e
+
+          if [ "$AUDIT_EXIT" -eq 0 ]; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+            echo "✅ npm audit passes after fix"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️  npm audit still has findings after fix – will note in PR"
+            jq -r '.vulnerabilities | to_entries[] | "\(.value.severity): \(.key)"' \
+              /tmp/audit-after.json 2>/dev/null || true
+          fi
+
+      - name: parse package changes
+        id: changes_detail
+        if: steps.changes.outputs.has_changes == 'true' && steps.verify.outcome !=
+          'skipped'
+        run: |
+          node - <<'EOF' > /tmp/changes.json
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          const diff = execSync('git diff package-lock.json').toString();
+
+          let currentPkg = null;
+          const changes  = {};
+
+          for (const line of diff.split('\n')) {
+            const pkgMatch = line.match(/^[+ ]\s+"node_modules\/([^"]+)"\s*:\s*\{/);
+            if (pkgMatch) { currentPkg = pkgMatch[1]; continue; }
+            if (!currentPkg) continue;
+
+            const removed = line.match(/^-\s+"version":\s+"([^"]+)"/);
+            const added   = line.match(/^\+\s+"version":\s+"([^"]+)"/);
+            if (removed) { changes[currentPkg] = changes[currentPkg] || {}; changes[currentPkg].from = removed[1]; }
+            if (added)   { changes[currentPkg] = changes[currentPkg] || {}; changes[currentPkg].to   = added[1];   }
+          }
+
+          let severityMap = {};
+          try {
+            const auditAfter = JSON.parse(fs.readFileSync('/tmp/audit-after.json', 'utf8'));
+            for (const [name, vuln] of Object.entries(auditAfter.vulnerabilities ?? {})) {
+              severityMap[name] = vuln.severity;
+            }
+          } catch {}
+
+          const result = Object.entries(changes)
+            .filter(([, v]) => v.from && v.to && v.from !== v.to)
+            .map(([name, v]) => ({
+              name,
+              from:     v.from,
+              to:       v.to,
+              severity: severityMap[name] ?? '—',
+            }))
+            .sort((a, b) => {
+              const o = { critical: 0, high: 1, moderate: 2 };
+              return (o[a.severity] ?? 9) - (o[b.severity] ?? 9);
+            });
+
+          fs.writeFileSync('/tmp/changes.json', JSON.stringify(result, null, 2));
+          console.log(`${result.length} package(s) updated`);
+          EOF
+
+      - name: compute branch name
+        id: meta
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          DEP_BRANCH="$HEAD_REF"
+          SHORT_SHA="$SHA"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          FIX_BRANCH="audit-fix/${DEP_BRANCH#dependabot/}-${SHORT_SHA}"
+          echo "fix_branch=$FIX_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "dep_branch=$DEP_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: commit and push
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${{ steps.meta.outputs.fix_branch }}"
+          git add package-lock.json
+
+          git commit -m "fix(deps): npm audit fix on ${{ steps.meta.outputs.dep_branch }}"
+          git push origin "${{ steps.meta.outputs.fix_branch }}"
+
+      - name: open pull request
+        id: open_pr
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CLEAN="${{ steps.verify.outputs.clean }}"
+          DEP_BRANCH="${{ steps.meta.outputs.dep_branch }}"
+          FIX_BRANCH="${{ steps.meta.outputs.fix_branch }}"
+
+          if [ "$CLEAN" = "true" ]; then
+            AUDIT_STATUS="✅ \`npm audit\` is **clean** after this fix – CI should pass."
+          else
+            AUDIT_STATUS="⚠️ \`npm audit\` still has **open findings** after this fix. Please review manually."
+          fi
+
+          TABLE=$(node -e "
+            const rows = require('/tmp/changes.json');
+            if (!rows.length) { console.log('| – | – | – | – |'); process.exit(); }
+            rows.forEach(r => {
+              const sev = r.severity === 'critical' ? '🔴 critical'
+                        : r.severity === 'high'     ? '🟠 high'
+                        : r.severity === 'moderate' ? '🟡 moderate'
+                        : r.severity;
+              console.log(\`| \${r.name} | \${r.from} | \${r.to} | \${sev} |\`);
+            });
+          ")
+
+          PR_BODY="## 🔒 npm audit auto-fix
+
+          \`npm audit fix\` was run automatically because \`npm audit\` failed on Dependabot PR \`$DEP_BRANCH\`.
+
+          ### Updated packages
+
+          | Package | From | To | Severity |
+          |---------|------|----|----------|
+          $TABLE
+
+          $AUDIT_STATUS
+
+          ### What changed?
+          Only \`package-lock.json\` – no changes to \`package.json\`.
+
+          ### Merge order
+          1. Merge this PR into \`$DEP_BRANCH\` (CI must be green)
+          2. Dependabot merges \`$DEP_BRANCH\` into main as usual"
+
+          PR_URL=$(gh pr create \
+            --base  "$DEP_BRANCH" \
+            --head  "$FIX_BRANCH" \
+            --title "fix(deps): npm audit fix for ${DEP_BRANCH}" \
+            --body  "$PR_BODY")
+
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "✅ PR opened: $PR_URL"
+
+      - name: job summary
+        if: always()
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          {
+            echo "## npm audit auto-fix"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Dependabot branch | \`$HEAD_REF\` |"
+            echo "| Changes found | ${{ steps.changes.outputs.has_changes }} |"
+            if [ "${{ steps.changes.outputs.has_changes }}" = "true" ]; then
+              echo "| Audit clean after fix | ${{ steps.verify.outputs.clean }} |"
+              echo "| Fix branch | \`${{ steps.meta.outputs.fix_branch }}\` |"
+              echo "| Fix PR | ${{ steps.open_pr.outputs.pr_url }} |"
+            else
+              echo "| Reason | Remaining findings require a manual major update or have no upstream fix yet |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

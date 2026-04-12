@@ -258,6 +258,30 @@ with:
 4. **Publish**: Docker images, npm packages, PyPI packages, etc.
 5. **Post-publish** (post-publish-verification.yml): Verify published Docker images → Detect supply chain attacks ✅
 
+### 14. npm Audit Auto-Fix (`npm-audit-autofix.yml`)
+
+**Automatic remediation** for npm audit failures on Dependabot PRs. Called automatically by `security-scan-source.yml` when `npm audit` fails on a Dependabot PR.
+
+**Flow:**
+```
+Dependabot PR → CI fails (npm audit) → this workflow →
+fix branch + PR on Dependabot branch → CI must pass on fix-PR →
+human reviews + merges fix-PR → Dependabot merges into main
+```
+
+**Features:**
+- ✅ Runs `npm audit fix` automatically on Dependabot PRs
+- ✅ Creates a fix branch with unique SHA suffix (prevents race conditions)
+- ✅ Opens a PR targeting the Dependabot branch with a detailed summary table
+- ✅ Verifies whether audit is clean after fix
+- ✅ Consistent `omit_dev` flag with the calling security scan
+- ✅ Only modifies `package-lock.json` – never `package.json`
+- ✅ Timeout protection (15 minutes)
+
+**Triggered automatically** – no manual configuration needed beyond the `security-scan-source.yml` integration.
+
+**Required repository setting:** Go to **Settings → Actions → General → Workflow permissions** and enable **"Allow GitHub Actions to create and approve pull requests"**. Without this, the workflow cannot open the fix PR.
+
 ## 🔧 Setup Instructions
 
 ### 1. Required Secrets & Permissions
@@ -486,7 +510,7 @@ All jobs depend on successful security scans - **vulnerable code cannot be publi
 
 ### Enhanced Security
 
-- ✅ Updated to latest action versions (checkout@v6, setup-node@v5)
+- ✅ Updated to latest action versions (checkout@v4, setup-node@v4)
 - ✅ Minimal permissions (contents: read by default)
 - ✅ Early secret validation with categorized exit codes
 - ✅ Defense-in-depth security architecture
@@ -563,8 +587,6 @@ jobs:
       artifact_path: "dist"
       library_path: "dist"
 ```
-
-**Note:** This example follows the pattern from `/Coding/AI/n8n/nodes/toon` which uses Trusted Publishing for npm.
 
 ### Docker + npm Publishing
 ```yaml
