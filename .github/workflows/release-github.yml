@@ -116,7 +116,7 @@ jobs:
         if: ${{ inputs.release_pre != '' && steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.release_exists != 'true' }}
         run: ${{ inputs.release_pre }}
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' && steps.check_release_exists.outputs.release_exists != 'true' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
