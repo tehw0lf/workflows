@@ -69,14 +69,14 @@ jobs:
       - name: check if build artifact exists
         if: ${{ inputs.artifact_path != '' }}
         id: check-artifact
-        uses: softwareforgood/check-artifact-v4-existence@v0
+        uses: softwareforgood/check-artifact-v4-existence@v0.4.1
         with:
           name: build
 
       # Download build artifacts for scanning
       - name: download build artifact
         if: ${{ steps.check-artifact.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: build
           path: ${{ inputs.artifact_path }}
@@ -107,7 +107,7 @@ jobs:
       - name: grype filesystem scan
         id: grype
         if: ${{ inputs.artifact_path != '' && steps.check-artifact.outputs.exists == 'true' }}
-        uses: anchore/scan-action@v7
+        uses: anchore/scan-action@v7.4.0
         with:
           path: "${{ inputs.artifact_path }}"
           fail-build: true
@@ -133,7 +133,7 @@ jobs:
 
       - name: upload security scan reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: security-scan-artifact-reports
           path: |
@@ -160,7 +160,7 @@ jobs:
 
       - name: set up docker
         if: ${{ inputs.docker_meta != '' }}
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.0.0
 
       - name: build and scan docker images
         if: ${{ inputs.docker_meta != '' }}
@@ -206,7 +206,7 @@ jobs:
 
       - name: upload docker scan reports
         if: always() && steps.docker-scan.outcome != 'skipped'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: docker-scan-reports
           path: trivy-image-*.sarif
