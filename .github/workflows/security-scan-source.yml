@@ -154,7 +154,7 @@ jobs:
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         uses: actions/setup-node@v6
         with:
-          node-version: "24.14.0"
+          node-version: "24.15.0"
           cache: "${{ inputs.tool }}"
           cache-dependency-path: |
             ${{ inputs.root_dir }}/package-lock.json
@@ -192,5 +192,5 @@ jobs:
     uses: ./.github/workflows/npm-audit-autofix.yml
     with:
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.14.0"
+      node_version: "24.15.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
