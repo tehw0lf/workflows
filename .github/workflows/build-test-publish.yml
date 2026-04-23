@@ -157,6 +157,11 @@ on:
         default: false
         required: false
         type: boolean
+      npm_audit_severity_threshold:
+        description: "minimum severity for npm audit to fail (low, moderate, high, critical)"
+        default: "moderate"
+        required: false
+        type: string
       trivy_severity:
         description: "minimum severity level for trivy (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
         default: "MEDIUM,HIGH,CRITICAL"
@@ -226,6 +231,7 @@ jobs:
       runner: ${{ inputs.runner }}
       semgrep_rules: ${{ inputs.semgrep_rules }}
       npm_audit_omit_dev: ${{ inputs.npm_audit_omit_dev }}
+      npm_audit_severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
   test_and_build:
     needs: [lint, security_scan_source]
     if: |

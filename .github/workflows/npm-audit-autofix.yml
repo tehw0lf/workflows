@@ -19,6 +19,11 @@ on:
         default: false
         required: false
         type: boolean
+      severity_threshold:
+        description: "minimum severity for npm audit to fail (low, moderate, high, critical)"
+        default: "moderate"
+        required: false
+        type: string
       runner:
         description: "workflow runner"
         default: "ubuntu-latest"
@@ -90,7 +95,7 @@ jobs:
         if: steps.changes.outputs.has_changes == 'true'
         run: |
           set +e
-          npm audit --audit-level=moderate${{ inputs.omit_dev && ' --omit=dev' || '' }} --json > /tmp/audit-after.json
+          npm audit --audit-level=${{ inputs.severity_threshold }}${{ inputs.omit_dev && ' --omit=dev' || '' }} --json > /tmp/audit-after.json
           AUDIT_EXIT=$?
           set -e
 
