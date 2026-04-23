@@ -72,7 +72,7 @@ jobs:
       - name: npm audit fix
         run: |
           set +e
-          npm audit fix${{ inputs.omit_dev && ' --omit=dev' || '' }}
+          npm audit fix
           set -e
 
       - name: check for changes
