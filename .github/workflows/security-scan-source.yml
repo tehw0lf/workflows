@@ -29,6 +29,11 @@ on:
         default: false
         required: false
         type: boolean
+      npm_audit_severity_threshold:
+        description: "minimum severity for npm audit to fail (low, moderate, high, critical)"
+        default: "moderate"
+        required: false
+        type: string
     outputs:
       semgrep_result:
         description: "semgrep scan result"
@@ -163,14 +168,13 @@ jobs:
       - name: npm audit
         id: npm-audit
         if: ${{ inputs.tool == 'npm' }}
-        run: npm audit --audit-level=moderate${{ inputs.npm_audit_omit_dev && '
-          --omit=dev' || '' }}
+        run: npm audit --audit-level=${{ inputs.npm_audit_severity_threshold }}${{ inputs.npm_audit_omit_dev && ' --omit=dev' || '' }}
         continue-on-error: false
 
       - name: yarn audit
         id: yarn-audit
         if: ${{ inputs.tool == 'yarn' }}
-        run: yarn audit --level moderate
+        run: yarn audit --level ${{ inputs.npm_audit_severity_threshold }}
         continue-on-error: false
 
       - name: upload security scan reports
@@ -194,3 +198,4 @@ jobs:
       root_dir: ${{ inputs.root_dir }}
       node_version: "24.15.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
+      severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
