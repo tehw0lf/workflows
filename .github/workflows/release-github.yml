@@ -88,19 +88,6 @@ jobs:
           echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
           echo "::notice::[Release] Extracted version: v${VERSION}"
 
-      - name: set git tag if not yet set
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: |
-          if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
-            echo "::warning::[Release] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping tag creation"
-          else
-            git tag "${{ steps.extract_version.outputs.release_tag }}"
-            git push origin "${{ steps.extract_version.outputs.release_tag }}"
-            echo "::notice::[Release] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: check_release_exists

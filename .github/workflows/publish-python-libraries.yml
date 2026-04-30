@@ -55,32 +55,3 @@ jobs:
           echo "FAILURE_REASON=missing_artifact" >> $GITHUB_ENV
           exit 1
 
-      - name: extract version from pyproject.toml
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        id: extract_version
-        run: |
-          if [[ -f pyproject.toml ]]; then
-            VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
-          else
-            echo "::error::[PyPI] Cannot find pyproject.toml"
-            exit 1
-          fi
-          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
-            echo "::error::[PyPI] Could not extract version from pyproject.toml (got: '${VERSION}')"
-            exit 1
-          fi
-          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "::notice::[PyPI] Extracted version: v${VERSION}"
-
-      - name: set git tag if not yet set
-        if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
-        run: |
-          if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
-            echo "::warning::[PyPI] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping tag creation"
-          else
-            git tag "${{ steps.extract_version.outputs.release_tag }}"
-            git push origin "${{ steps.extract_version.outputs.release_tag }}"
-            echo "::notice::[PyPI] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

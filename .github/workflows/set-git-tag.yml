@@ -1,0 +1,80 @@
+name: set git tag
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      tool:
+        description: "build tool - uv, npm, yarn, cargo, etc."
+        default: "none"
+        required: false
+        type: string
+      root_dir:
+        description: "path to project root (where the manifest file is)"
+        default: "."
+        required: false
+        type: string
+      artifact_path:
+        description: "path to artifact files (used as fallback for uv version.json)"
+        default: ""
+        required: false
+        type: string
+
+jobs:
+  set_git_tag:
+    name: set git tag
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+
+      - name: extract version from manifest
+        id: extract_version
+        run: |
+          if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
+            VERSION=$(jq -r .version package.json)
+          elif [[ "${{ inputs.tool }}" == "uv" ]]; then
+            if [[ -f pyproject.toml ]]; then
+              VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+            elif [[ -f "${{ inputs.artifact_path }}/version.json" ]]; then
+              VERSION=$(jq -r .version "${{ inputs.artifact_path }}/version.json")
+            else
+              echo "::error::[Tag] Cannot find pyproject.toml or version.json for uv project"
+              exit 1
+            fi
+          elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
+            VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          else
+            echo "::notice::[Tag] Unsupported tool '${{ inputs.tool }}' for version extraction, skipping tag"
+            exit 0
+          fi
+
+          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+            echo "::warning::[Tag] Could not extract version from manifest (got: '${VERSION}'), skipping tag"
+            exit 0
+          fi
+          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "::notice::[Tag] Extracted version: v${VERSION}"
+
+      - name: set git tag if not yet set
+        if: ${{ steps.extract_version.outputs.release_tag != '' }}
+        run: |
+          if git ls-remote --tags origin "${{ steps.extract_version.outputs.release_tag }}" | grep -q "${{ steps.extract_version.outputs.release_tag }}"; then
+            echo "::warning::[Tag] Tag ${{ steps.extract_version.outputs.release_tag }} already exists, skipping tag creation"
+          else
+            git tag "${{ steps.extract_version.outputs.release_tag }}"
+            git push origin "${{ steps.extract_version.outputs.release_tag }}"
+            echo "::notice::[Tag] Created and pushed tag ${{ steps.extract_version.outputs.release_tag }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
