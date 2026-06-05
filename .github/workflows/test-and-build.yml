@@ -247,14 +247,10 @@ jobs:
       - name: Install Playwright OS dependencies
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
         run: npx playwright install-deps
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
 
       - name: Install Playwright browsers
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && steps.playwright-cache.outputs.cache-hit != 'true' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
         run: npx playwright install
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
 
       - name: e2e test
         if: ${{ inputs.tool != 'none' && inputs.e2e != '' }}
