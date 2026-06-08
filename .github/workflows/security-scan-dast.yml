@@ -24,7 +24,7 @@ on:
         type: string
       fail_on_warn:
         description: "fail the workflow on warnings (true) or only on errors (false)"
-        default: "false"
+        default: false
         required: false
         type: boolean
       runner:
