@@ -49,7 +49,7 @@ jobs:
         shell: bash
 
       - name: publish firefox extension
-        uses: wdzeng/firefox-addon@v1.2.0
+        uses: wdzeng/firefox-addon@v1.2.1
         with:
           addon-guid: ${{ inputs.addon_guid }}
           xpi-path: ${{ inputs.xpi_path }}
