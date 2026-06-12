@@ -24,7 +24,8 @@ on:
         required: false
         type: string
       npm_audit_omit_dev:
-        description: "omit dev dependencies from npm audit (use when dev-only vulns have
+        description:
+          "omit dev dependencies from npm audit (use when dev-only vulns have
           no upstream fix)"
         default: false
         required: false
@@ -80,11 +81,12 @@ jobs:
           fetch-depth: 0
 
       # Setup Python once for all tools (Semgrep, Bandit, pip-audit)
-      - name: setup python (from pyproject.toml for uv, 3.12 otherwise)
+      - name: setup python (from pyproject.toml for uv, 3.14 otherwise)
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ inputs.tool == 'uv' && '' || '3.12' }}
-          python-version-file: ${{ inputs.tool == 'uv' && format('{0}/pyproject.toml',
+          python-version: ${{ inputs.tool == 'uv' && '' || '3.14' }}
+          python-version-file:
+            ${{ inputs.tool == 'uv' && format('{0}/pyproject.toml',
             inputs.root_dir) || '' }}
 
       # Layer 1a: Semgrep SAST (all languages)
