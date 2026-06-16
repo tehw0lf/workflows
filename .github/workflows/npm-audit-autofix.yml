@@ -115,7 +115,7 @@ jobs:
           steps.changes.outputs.has_changes == 'true' && steps.verify.outcome !=
           'skipped'
         run: |
-          node - <<'EOF' > /tmp/changes.json
+          node - <<'EOF'
           const { execSync } = require('child_process');
           const fs = require('fs');
 
