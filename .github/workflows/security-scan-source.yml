@@ -3,6 +3,11 @@ name: security scan source
 on:
   workflow_call:
     inputs:
+      head_ref:
+        description: "branch that triggered the workflow (pass github.head_ref from caller)"
+        default: ""
+        required: false
+        type: string
       root_dir:
         description: "path to project root"
         default: "."
@@ -195,8 +200,10 @@ jobs:
       always()
       && needs.scan_source.outputs.npm_audit_result == 'failure'
       && (github.actor == 'dependabot[bot]' || github.event_name == 'schedule')
+      && !startsWith(inputs.head_ref, 'audit-fix/')
     uses: ./.github/workflows/npm-audit-autofix.yml
     with:
+      head_ref: ${{ inputs.head_ref }}
       root_dir: ${{ inputs.root_dir }}
       node_version: "24.16.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}

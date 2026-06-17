@@ -226,6 +226,7 @@ jobs:
     needs: lint
     uses: ./.github/workflows/security-scan-source.yml
     with:
+      head_ref: ${{ github.head_ref }}
       root_dir: ${{ inputs.root_dir }}
       tool: ${{ inputs.tool }}
       runner: ${{ inputs.runner }}
