@@ -61,6 +61,15 @@ jobs:
         working-directory: ${{ inputs.root_dir }}
 
     steps:
+      - name: validate head_ref
+        env:
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: |
+          if [ -z "$HEAD_REF" ]; then
+            echo "::error::head_ref input is empty – cannot determine Dependabot branch name"
+            exit 1
+          fi
+
       - name: checkout
         uses: actions/checkout@v6
         with:
