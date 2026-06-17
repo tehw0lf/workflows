@@ -62,8 +62,10 @@ jobs:
 
     steps:
       - name: validate head_ref
+        env:
+          HEAD_REF: ${{ inputs.head_ref }}
         run: |
-          if [ -z "${{ inputs.head_ref }}" ]; then
+          if [ -z "$HEAD_REF" ]; then
             echo "::error::head_ref input is empty – cannot determine Dependabot branch name"
             exit 1
           fi
