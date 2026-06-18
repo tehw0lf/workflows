@@ -199,7 +199,7 @@ jobs:
     if: |
       always()
       && needs.scan_source.outputs.npm_audit_result == 'failure'
-      && (github.actor == 'dependabot[bot]' || github.event_name == 'schedule')
+      && github.actor == 'dependabot[bot]'
       && inputs.head_ref != ''
       && !startsWith(inputs.head_ref, 'audit-fix/')
     uses: ./.github/workflows/npm-audit-autofix.yml
