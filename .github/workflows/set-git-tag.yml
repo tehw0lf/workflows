@@ -36,7 +36,7 @@ jobs:
         working-directory: ${{ inputs.root_dir }}
     steps:
       - name: checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: extract version from manifest
         id: extract_version
