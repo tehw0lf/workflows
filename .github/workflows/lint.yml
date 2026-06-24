@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: tehw0lf/workflows
-          ref: main
+          ref: ${{ github.sha }}
           path: workflows-repo
 
       - name: Generate workflow hash for cache key
