@@ -58,11 +58,12 @@ jobs:
       - name: format report summary
         if: always() && steps.audit.outcome != 'skipped'
         run: |
-          echo "### 🔦 Lighthouse Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "### Lighthouse Audit Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | Performance | Accessibility | Best Practices | SEO |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo '${{ steps.audit.outputs.manifest }}' | jq -r '.[] | "| \(.url) | \(.summary.performance * 100 | round)% | \(.summary.accessibility * 100 | round)% | \(.summary["best-practices"] * 100 | round)% | \(.summary.seo * 100 | round)% |"' >> $GITHUB_STEP_SUMMARY || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Full reports: ${{ steps.audit.outputs.links }}" >> $GITHUB_STEP_SUMMARY
+          MANIFEST=$(find .lighthouseci -name 'manifest.json' 2>/dev/null | head -1)
+          if [ -f "$MANIFEST" ]; then
+            echo "| URL | Performance | Accessibility | Best Practices | SEO |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
+            jq -r '.[] | "| \(.url) | \(.summary.performance * 100 | round)% | \(.summary.accessibility * 100 | round)% | \(.summary["best-practices"] * 100 | round)% | \(.summary.seo * 100 | round)% |"' "$MANIFEST" >> $GITHUB_STEP_SUMMARY || true
+          fi
         continue-on-error: true
