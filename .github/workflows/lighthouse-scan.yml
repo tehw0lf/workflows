@@ -1,0 +1,68 @@
+name: lighthouse scan
+
+on:
+  workflow_call:
+    inputs:
+      target_url:
+        description: "url of the running application to audit"
+        required: true
+        type: string
+      urls:
+        description: "additional urls to audit as json array (e.g. '[\"https://example.com/about\"]')"
+        default: ""
+        required: false
+        type: string
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+    outputs:
+      lighthouse_result:
+        description: "lighthouse scan result"
+        value: ${{ jobs.lighthouse.outputs.lighthouse_result }}
+
+jobs:
+  lighthouse:
+    name: lighthouse audit
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      lighthouse_result: ${{ steps.audit.outcome }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: build urls list
+        id: urls
+        run: |
+          BASE_URL="${{ inputs.target_url }}"
+          EXTRA='${{ inputs.urls }}'
+          if [ -n "$EXTRA" ]; then
+            URLS=$(echo "$EXTRA" | jq -c ". + [\"$BASE_URL\"]")
+          else
+            URLS="[\"$BASE_URL\"]"
+          fi
+          echo "urls=$URLS" >> $GITHUB_OUTPUT
+
+      - name: run lighthouse
+        id: audit
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: ${{ steps.urls.outputs.urls }}
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: format report summary
+        if: always() && steps.audit.outcome != 'skipped'
+        run: |
+          echo "### 🔦 Lighthouse Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| URL | Performance | Accessibility | Best Practices | SEO |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.audit.outputs.manifest }}' | jq -r '.[] | "| \(.url) | \(.summary.performance * 100 | round)% | \(.summary.accessibility * 100 | round)% | \(.summary["best-practices"] * 100 | round)% | \(.summary.seo * 100 | round)% |"' >> $GITHUB_STEP_SUMMARY || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full reports: ${{ steps.audit.outputs.links }}" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
