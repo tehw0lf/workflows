@@ -57,15 +57,17 @@ jobs:
 
       - name: format report summary
         if: always() && steps.audit.outcome != 'skipped'
+        env:
+          RESULTS_PATH: ${{ steps.audit.outputs.resultspath }}
+          REPORT_LINKS: ${{ steps.audit.outputs.links }}
         run: |
           echo "### Lighthouse Audit Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          RESULTS_PATH="${{ steps.audit.outputs.resultspath }}"
           if [ -f "$RESULTS_PATH" ]; then
             echo "| URL | Performance | Accessibility | Best Practices | SEO |" >> $GITHUB_STEP_SUMMARY
             echo "|-----|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
             jq -r '.[] | "| \(.url) | \(.summary.performance * 100 | round)% | \(.summary.accessibility * 100 | round)% | \(.summary["best-practices"] * 100 | round)% | \(.summary.seo * 100 | round)% |"' "$RESULTS_PATH" >> $GITHUB_STEP_SUMMARY || true
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Full reports: ${{ steps.audit.outputs.links }}" >> $GITHUB_STEP_SUMMARY
+          echo "Full reports: $REPORT_LINKS" >> $GITHUB_STEP_SUMMARY
         continue-on-error: true
