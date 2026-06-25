@@ -33,7 +33,7 @@ jobs:
     outputs:
       lighthouse_result: ${{ steps.audit.outcome }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: build urls list
         id: urls
@@ -41,11 +41,16 @@ jobs:
           BASE_URL="${{ inputs.target_url }}"
           EXTRA='${{ inputs.urls }}'
           if [ -n "$EXTRA" ]; then
-            URLS=$(echo "$EXTRA" | jq -c ". + [\"$BASE_URL\"]")
+            URLS=$(echo "$EXTRA" | jq -r '.[]')
+            URLS="$BASE_URL"$'\n'"$URLS"
           else
-            URLS="[\"$BASE_URL\"]"
+            URLS="$BASE_URL"
           fi
-          echo "urls=$URLS" >> $GITHUB_OUTPUT
+          {
+            echo "urls<<EOF"
+            echo "$URLS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: run lighthouse
         id: audit
