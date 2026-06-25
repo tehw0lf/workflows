@@ -12,6 +12,26 @@ on:
         default: ""
         required: false
         type: string
+      min_performance:
+        description: "minimum performance score (0-100)"
+        default: 80
+        required: false
+        type: number
+      min_accessibility:
+        description: "minimum accessibility score (0-100)"
+        default: 90
+        required: false
+        type: number
+      min_best_practices:
+        description: "minimum best-practices score (0-100)"
+        default: 80
+        required: false
+        type: number
+      min_seo:
+        description: "minimum SEO score (0-100)"
+        default: 80
+        required: false
+        type: number
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -35,6 +55,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: write lighthouserc
+        run: |
+          cat > .lighthouserc.json << 'RCEOF'
+          {
+            "ci": {
+              "assert": {
+                "assertions": {
+                  "categories:performance": ["error", {"minScore": $MIN_PERF}],
+                  "categories:accessibility": ["error", {"minScore": $MIN_A11Y}],
+                  "categories:best-practices": ["error", {"minScore": $MIN_BP}],
+                  "categories:seo": ["error", {"minScore": $MIN_SEO}]
+                }
+              }
+            }
+          }
+          RCEOF
+          jq \
+            --argjson MIN_PERF "${{ inputs.min_performance }}" \
+            --argjson MIN_A11Y "${{ inputs.min_accessibility }}" \
+            --argjson MIN_BP "${{ inputs.min_best_practices }}" \
+            --argjson MIN_SEO "${{ inputs.min_seo }}" \
+            '.ci.assert.assertions."categories:performance"[1].minScore = ($MIN_PERF / 100) |
+             .ci.assert.assertions."categories:accessibility"[1].minScore = ($MIN_A11Y / 100) |
+             .ci.assert.assertions."categories:best-practices"[1].minScore = ($MIN_BP / 100) |
+             .ci.assert.assertions."categories:seo"[1].minScore = ($MIN_SEO / 100)' \
+            .lighthouserc.json > .lighthouserc.tmp.json
+          mv .lighthouserc.tmp.json .lighthouserc.json
+
       - name: build urls list
         id: urls
         run: |
@@ -57,6 +105,7 @@ jobs:
         uses: treosh/lighthouse-ci-action@v12
         with:
           urls: ${{ steps.urls.outputs.urls }}
+          configPath: .lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
 
