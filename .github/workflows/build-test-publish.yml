@@ -9,8 +9,6 @@ on:
         required: false
       AMO_API_SECRET:
         required: false
-      NX_CLOUD_ACCESS_TOKEN:
-        required: false
     inputs:
       head_ref:
         description: "branch that triggered the workflow (pass github.head_ref from caller)"
