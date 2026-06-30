@@ -42,14 +42,18 @@ jobs:
       run:
         working-directory: ${{ inputs.root_dir }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: package firefox extension
-        run: zip -r ${{ inputs.xpi_path }} * -x .git\* -x .github\*
+        run: zip -r "$XPI_PATH" * -x .git\* -x .github\*
         shell: bash
+        env:
+          XPI_PATH: ${{ inputs.xpi_path }}
 
       - name: publish firefox extension
-        uses: wdzeng/firefox-addon@v1.2.1
+        uses: wdzeng/firefox-addon@3184ee491b500e080885e046051366a4228c6e5d # v1.2.1
         with:
           addon-guid: ${{ inputs.addon_guid }}
           xpi-path: ${{ inputs.xpi_path }}
