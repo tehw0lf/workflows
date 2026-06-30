@@ -53,7 +53,7 @@ jobs:
     outputs:
       lighthouse_result: ${{ steps.audit.outcome }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: write lighthouserc
         run: |
@@ -102,7 +102,7 @@ jobs:
 
       - name: run lighthouse
         id: audit
-        uses: treosh/lighthouse-ci-action@v12
+        uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # 12.6.2
         with:
           urls: ${{ steps.urls.outputs.urls }}
           configPath: .lighthouserc.json

@@ -38,10 +38,10 @@ jobs:
       run:
         working-directory: ${{ inputs.root_dir }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: check build artifact existence
-        uses: softwareforgood/check-artifact-v4-existence@v0
+        uses: softwareforgood/check-artifact-v4-existence@f988c59be23773bdf226dffa5720d85a13501fba # v0.4.3
         id: check_artifact_exists
         with:
           name: build

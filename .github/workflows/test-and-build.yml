@@ -119,12 +119,12 @@ jobs:
       run:
         working-directory: ${{ inputs.root_dir }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
       - name: cache dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.npm
@@ -141,12 +141,12 @@ jobs:
 
       - name: configure jdk
         if: ${{ inputs.tool == './gradlew' || inputs.tool == 'mvn' }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           distribution: "temurin"
           java-version: "21"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
           node-version: "24.16.0"
@@ -156,13 +156,13 @@ jobs:
             ${{ inputs.root_dir }}/yarn.lock
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         if: ${{ inputs.tool == 'uv' }}
         with:
           enable-cache: true
           cache-dependency-glob: "${{ inputs.root_dir }}/uv.lock"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         if: ${{ inputs.tool == 'uv' }}
         with:
           python-version-file: "${{ inputs.root_dir }}/pyproject.toml"
@@ -176,7 +176,7 @@ jobs:
 
       - name: cache cargo dependencies
         if: ${{ inputs.tool == 'cargo' }}
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -188,7 +188,7 @@ jobs:
 
       - name: enable nx shas
         if: ${{ success() && hashFiles('./nx.json') != '' }}
-        uses: nrwl/nx-set-shas@v5
+        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
         with:
           main-branch-name: main
 
@@ -239,7 +239,7 @@ jobs:
       - name: Cache Playwright browsers
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
         id: playwright-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}
@@ -286,14 +286,14 @@ jobs:
 
       - name: attest SBOM
         if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/attest@v4
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
           subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
           sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
 
       - name: upload SBOM artifact
         if: ${{ inputs.enable_sbom_attestation == 'true' && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom-npm-libraries
           path: ${{ inputs.root_dir }}/sbom
@@ -302,14 +302,14 @@ jobs:
 
       - name: upload build artifact (from artifact_path)
         if: ${{ inputs.artifact_path != '' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: build
           path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
 
       - name: upload app artifact (from app_root)
         if: ${{ github.event_name == 'push' && inputs.app_root != '' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: app
           path: ${{ inputs.app_root }}
