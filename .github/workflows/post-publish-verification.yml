@@ -134,7 +134,7 @@ jobs:
       # Upload SARIF results to GitHub Security
       - name: upload trivy image SARIF
         if: always() && steps.trivy-image.outcome != 'skipped'
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
           sarif_file: trivy-image-*.sarif
           category: trivy-published-images
