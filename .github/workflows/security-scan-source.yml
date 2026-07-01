@@ -101,13 +101,23 @@ jobs:
 
       - name: semgrep security scan
         id: semgrep
-        run: semgrep ci --config=${{ inputs.semgrep_rules }} --sarif > semgrep.sarif
+        run: |
+          config_args=()
+          for rule in ${{ inputs.semgrep_rules }}; do
+            config_args+=(--config "$rule")
+          done
+          semgrep ci "${config_args[@]}" --sarif > semgrep.sarif
         continue-on-error: true
 
       - name: check semgrep results for unsuppressed findings
         id: semgrep-check
         if: always()
         run: |
+          if [ "${{ steps.semgrep.outcome }}" != "success" ]; then
+            echo "❌ Semgrep scan step failed, treating as a failed check"
+            exit 1
+          fi
+
           # Check if semgrep.sarif exists and has findings
           if [ ! -f semgrep.sarif ]; then
             echo "No SARIF file generated, failing..."
