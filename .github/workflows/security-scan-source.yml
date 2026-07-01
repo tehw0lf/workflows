@@ -101,16 +101,26 @@ jobs:
 
       - name: semgrep security scan
         id: semgrep
-        run: semgrep ci --config=${{ inputs.semgrep_rules }} --sarif > semgrep.sarif
+        env:
+          SEMGREP_RULES: ${{ inputs.semgrep_rules }}
+        run: |
+          config_args=()
+          for rule in $SEMGREP_RULES; do
+            config_args+=(--config "$rule")
+          done
+          semgrep ci "${config_args[@]}" --sarif > semgrep.sarif
         continue-on-error: true
 
       - name: check semgrep results for unsuppressed findings
         id: semgrep-check
         if: always()
         run: |
-          # Check if semgrep.sarif exists and has findings
-          if [ ! -f semgrep.sarif ]; then
-            echo "No SARIF file generated, failing..."
+          # Check if semgrep.sarif exists and is valid JSON (catches tool/config
+          # errors, e.g. a bad --config; semgrep ci itself exits non-zero
+          # whenever it has findings, so the step outcome alone can't be used
+          # to distinguish "scan failed" from "scan found issues")
+          if [ ! -s semgrep.sarif ] || ! jq empty semgrep.sarif 2>/dev/null; then
+            echo "❌ No valid SARIF file generated, semgrep scan did not run correctly"
             exit 1
           fi
 
