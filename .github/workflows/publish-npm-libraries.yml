@@ -82,8 +82,10 @@ jobs:
             ${{ inputs.root_dir }}/yarn.lock
             ${{ inputs.root_dir }}/pnpm-lock.yaml
 
-      - name: install latest npm for OIDC support
-        run: npm install -g npm@latest
+      - name: install npm 11 for OIDC support
+        # pinned to major 11: npm 12.0.0 ships without the sigstore module,
+        # breaking `npm publish --provenance` (npm/cli#9722)
+        run: npm install -g npm@11
 
       - name: publish multiple npm libraries
         if: ${{ inputs.libraries != '' && steps.check_artifact_exists.outputs.exists == 'true' }}
