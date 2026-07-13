@@ -32,6 +32,11 @@ on:
         default: 80
         required: false
         type: number
+      num_runs:
+        description: "number of lighthouse runs per url; median is used (reduces CI runner jitter/flakiness)"
+        default: 3
+        required: false
+        type: number
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -108,6 +113,7 @@ jobs:
         with:
           urls: ${{ steps.urls.outputs.urls }}
           configPath: .lighthouserc.json
+          numberOfRuns: ${{ inputs.num_runs }}
           uploadArtifacts: true
           temporaryPublicStorage: true
 
