@@ -113,7 +113,7 @@ jobs:
         with:
           urls: ${{ steps.urls.outputs.urls }}
           configPath: .lighthouserc.json
-          numberOfRuns: ${{ inputs.num_runs }}
+          runs: ${{ inputs.num_runs }}
           uploadArtifacts: true
           temporaryPublicStorage: true
 
