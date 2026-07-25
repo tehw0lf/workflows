@@ -1,11 +1,29 @@
-name: npm audit auto-fix (Dependabot)
+name: npm audit auto-fix
 
 on:
   workflow_call:
     inputs:
+      mode:
+        description:
+          "branch = PR against the triggering branch, one per SHA (covers
+          Dependabot and regular feature branches); scheduled = PR against the
+          default branch, reusing a single fix branch"
+        default: "branch"
+        required: false
+        type: string
       head_ref:
-        description: "branch that triggered the workflow (github.head_ref from the caller)"
-        required: true
+        description:
+          "branch that triggered the workflow (github.head_ref from the
+          caller) - required for mode=branch, ignored for mode=scheduled"
+        default: ""
+        required: false
+        type: string
+      base_branch:
+        description:
+          "base branch for the fix PR in mode=scheduled (defaults to the
+          repository default branch)"
+        default: ""
+        required: false
         type: string
       root_dir:
         description: "path to project root (same as in security-scan-source)"
@@ -46,7 +64,7 @@ on:
 
 jobs:
   audit_fix:
-    name: npm audit fix → PR on Dependabot branch
+    name: npm audit fix → PR
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 15
     permissions:
@@ -61,19 +79,35 @@ jobs:
         working-directory: ${{ inputs.root_dir }}
 
     steps:
-      - name: validate head_ref
+      - name: validate inputs
         env:
+          MODE: ${{ inputs.mode }}
           HEAD_REF: ${{ inputs.head_ref }}
         run: |
-          if [ -z "$HEAD_REF" ]; then
-            echo "::error::head_ref input is empty – cannot determine Dependabot branch name"
-            exit 1
-          fi
+          case "$MODE" in
+            branch)
+              if [ -z "$HEAD_REF" ]; then
+                echo "::error::head_ref is required for mode=branch – cannot determine the branch to fix"
+                exit 3
+              fi
+              ;;
+            scheduled)
+              ;;
+            *)
+              echo "::error::invalid mode '$MODE' – expected 'branch' or 'scheduled'"
+              exit 3
+              ;;
+          esac
 
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.head_ref }}
+          # mode=scheduled must fix the base branch, not the ref that
+          # triggered the run - an empty ref would make checkout fall back to
+          # the event ref, which differs from the PR base on workflow_dispatch
+          ref:
+            ${{ inputs.mode == 'branch' && inputs.head_ref ||
+            inputs.base_branch || github.event.repository.default_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -173,42 +207,65 @@ jobs:
           console.log(`${result.length} package(s) updated`);
           EOF
 
-      - name: compute branch name
+      - name: compute branch names
         id: meta
         if: steps.changes.outputs.has_changes == 'true'
         env:
+          MODE: ${{ inputs.mode }}
           HEAD_REF: ${{ inputs.head_ref }}
+          BASE_INPUT: ${{ inputs.base_branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           SHA: ${{ github.sha }}
         run: |
-          DEP_BRANCH="$HEAD_REF"
-          SHORT_SHA="$SHA"
-          SHORT_SHA="${SHORT_SHA:0:7}"
-          FIX_BRANCH="audit-fix/${DEP_BRANCH#dependabot/}-${SHORT_SHA}"
-          echo "fix_branch=$FIX_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "dep_branch=$DEP_BRANCH" >> "$GITHUB_OUTPUT"
+          if [ "$MODE" = "branch" ]; then
+            # per-SHA branch: each push to the source branch gets its own fix PR
+            BASE_BRANCH="$HEAD_REF"
+            SHORT_SHA="${SHA:0:7}"
+            SLUG="${HEAD_REF#dependabot/}"
+            FIX_BRANCH="audit-fix/${SLUG}-${SHORT_SHA}"
+          else
+            # stable branch: the scheduled run reuses one PR instead of
+            # opening a new one on every cron tick
+            BASE_BRANCH="${BASE_INPUT:-$DEFAULT_BRANCH}"
+            FIX_BRANCH="audit-fix/scheduled"
+          fi
+
+          echo "fix_branch=$FIX_BRANCH"   >> "$GITHUB_OUTPUT"
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: commit and push
         if: steps.changes.outputs.has_changes == 'true'
+        env:
+          MODE: ${{ inputs.mode }}
+          FIX_BRANCH: ${{ steps.meta.outputs.fix_branch }}
+          BASE_BRANCH: ${{ steps.meta.outputs.base_branch }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git checkout -b "${{ steps.meta.outputs.fix_branch }}"
+          git checkout -b "$FIX_BRANCH"
           git add package-lock.json
+          git commit -m "fix(deps): npm audit fix on $BASE_BRANCH"
 
-          git commit -m "fix(deps): npm audit fix on ${{ steps.meta.outputs.dep_branch }}"
-          git push origin "${{ steps.meta.outputs.fix_branch }}"
+          if [ "$MODE" = "scheduled" ]; then
+            # the fix branch is disposable and rebuilt from base on every run,
+            # so overwriting a stale one is the intended update path
+            git push --force origin "$FIX_BRANCH"
+          else
+            git push origin "$FIX_BRANCH"
+          fi
 
       - name: open pull request
         id: open_pr
         if: steps.changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: ${{ inputs.mode }}
+          CLEAN: ${{ steps.verify.outputs.clean }}
+          BASE_BRANCH: ${{ steps.meta.outputs.base_branch }}
+          FIX_BRANCH: ${{ steps.meta.outputs.fix_branch }}
+          IS_DEPENDABOT: ${{ github.actor == 'dependabot[bot]' }}
         run: |
-          CLEAN="${{ steps.verify.outputs.clean }}"
-          DEP_BRANCH="${{ steps.meta.outputs.dep_branch }}"
-          FIX_BRANCH="${{ steps.meta.outputs.fix_branch }}"
-
           if [ "$CLEAN" = "true" ]; then
             AUDIT_STATUS="✅ \`npm audit\` is **clean** after this fix – CI should pass."
           else
@@ -227,9 +284,34 @@ jobs:
             });
           ")
 
+          if [ "$MODE" = "branch" ]; then
+            PR_TITLE="fix(deps): npm audit fix for ${BASE_BRANCH}"
+            if [ "$IS_DEPENDABOT" = "true" ]; then
+              TRIGGER="\`npm audit fix\` was run automatically because \`npm audit\` failed on Dependabot PR \`$BASE_BRANCH\`."
+              MERGE_NOTE="### Merge order
+          1. Merge this PR into \`$BASE_BRANCH\` (CI must be green)
+          2. Dependabot merges \`$BASE_BRANCH\` into main as usual"
+            else
+              TRIGGER="\`npm audit fix\` was run automatically because \`npm audit\` failed on branch \`$BASE_BRANCH\`."
+              MERGE_NOTE="### Merge order
+          1. Merge this PR into \`$BASE_BRANCH\` (CI must be green)
+          2. Continue with your own PR as usual
+
+          > A new fix PR is opened per commit. If you already fixed the finding
+          > yourself, just close this one."
+            fi
+          else
+            TRIGGER="\`npm audit fix\` was run automatically because the scheduled security scan found vulnerabilities on \`$BASE_BRANCH\`."
+            MERGE_NOTE="### Merge order
+          Merge directly into \`$BASE_BRANCH\` once CI is green.
+
+          > This PR is updated in place by later scheduled runs – the branch \`$FIX_BRANCH\` is force-pushed, so local checkouts need a fresh pull."
+            PR_TITLE="fix(deps): npm audit fix (scheduled security scan)"
+          fi
+
           PR_BODY="## 🔒 npm audit auto-fix
 
-          \`npm audit fix\` was run automatically because \`npm audit\` failed on Dependabot PR \`$DEP_BRANCH\`.
+          $TRIGGER
 
           ### Updated packages
 
@@ -242,29 +324,38 @@ jobs:
           ### What changed?
           Only \`package-lock.json\` – no changes to \`package.json\`.
 
-          ### Merge order
-          1. Merge this PR into \`$DEP_BRANCH\` (CI must be green)
-          2. Dependabot merges \`$DEP_BRANCH\` into main as usual"
+          $MERGE_NOTE"
 
-          PR_URL=$(gh pr create \
-            --base  "$DEP_BRANCH" \
-            --head  "$FIX_BRANCH" \
-            --title "fix(deps): npm audit fix for ${DEP_BRANCH}" \
-            --body  "$PR_BODY")
+          EXISTING=$(gh pr list --head "$FIX_BRANCH" --base "$BASE_BRANCH" \
+            --state open --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --title "$PR_TITLE" --body "$PR_BODY"
+            PR_URL=$(gh pr view "$EXISTING" --json url --jq '.url')
+            echo "♻️  Existing PR updated: $PR_URL"
+          else
+            PR_URL=$(gh pr create \
+              --base  "$BASE_BRANCH" \
+              --head  "$FIX_BRANCH" \
+              --title "$PR_TITLE" \
+              --body  "$PR_BODY")
+            echo "✅ PR opened: $PR_URL"
+          fi
 
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
-          echo "✅ PR opened: $PR_URL"
 
       - name: job summary
         if: always()
         env:
-          HEAD_REF: ${{ inputs.head_ref }}
+          MODE: ${{ inputs.mode }}
+          BASE_BRANCH: ${{ steps.meta.outputs.base_branch }}
         run: |
           {
             echo "## npm audit auto-fix"
             echo "| | |"
             echo "|---|---|"
-            echo "| Dependabot branch | \`$HEAD_REF\` |"
+            echo "| Mode | \`$MODE\` |"
+            echo "| Base branch | \`${BASE_BRANCH:-—}\` |"
             echo "| Changes found | ${{ steps.changes.outputs.has_changes }} |"
             if [ "${{ steps.changes.outputs.has_changes }}" = "true" ]; then
               echo "| Audit clean after fix | ${{ steps.verify.outputs.clean }} |"

@@ -40,6 +40,20 @@ on:
         default: "moderate"
         required: false
         type: string
+      enable_npm_audit_autofix:
+        description:
+          "run npm audit fix and open a PR when npm audit fails (any PR branch
+          in this repo, plus scheduled/manual runs)"
+        default: true
+        required: false
+        type: boolean
+      audit_fix_base_branch:
+        description:
+          "base branch for the scheduled auto-fix PR (defaults to the
+          repository default branch)"
+        default: ""
+        required: false
+        type: string
     outputs:
       semgrep_result:
         description: "semgrep scan result"
@@ -54,14 +68,20 @@ on:
         description: "pip-audit result"
         value: ${{ jobs.scan_source.outputs.pip_audit_result }}
       npm_audit_fix_branch:
-        description: "fix branch created for dependabot npm audit auto-fix"
-        value: ${{ jobs.dependabot-audit-fix.outputs.fix_branch }}
+        description: "fix branch created by the npm audit auto-fix"
+        value:
+          ${{ jobs.branch-audit-fix.outputs.fix_branch ||
+          jobs.scheduled-audit-fix.outputs.fix_branch }}
       npm_audit_fix_pr:
         description: "url of the auto-fix PR"
-        value: ${{ jobs.dependabot-audit-fix.outputs.fix_pr_url }}
+        value:
+          ${{ jobs.branch-audit-fix.outputs.fix_pr_url ||
+          jobs.scheduled-audit-fix.outputs.fix_pr_url }}
       npm_audit_clean_after_fix:
         description: "whether audit is clean after auto-fix"
-        value: ${{ jobs.dependabot-audit-fix.outputs.audit_clean_after_fix }}
+        value:
+          ${{ jobs.branch-audit-fix.outputs.audit_clean_after_fix ||
+          jobs.scheduled-audit-fix.outputs.audit_clean_after_fix }}
 
 jobs:
   scan_source:
@@ -205,17 +225,40 @@ jobs:
             ${{ inputs.root_dir }}/semgrep.sarif
           if-no-files-found: ignore
 
-  dependabot-audit-fix:
+  branch-audit-fix:
     needs: scan_source
+    # any PR branch in this repo - Dependabot and regular feature branches
+    # alike. Forks are excluded: their GITHUB_TOKEN is read-only, so the push
+    # would fail, and pushing into a fork is not something we want anyway.
     if: |
       always()
+      && inputs.enable_npm_audit_autofix
       && needs.scan_source.outputs.npm_audit_result == 'failure'
-      && github.actor == 'dependabot[bot]'
       && inputs.head_ref != ''
       && !startsWith(inputs.head_ref, 'audit-fix/')
+      && github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/npm-audit-autofix.yml
     with:
+      mode: "branch"
       head_ref: ${{ inputs.head_ref }}
+      root_dir: ${{ inputs.root_dir }}
+      node_version: "24.16.0"
+      omit_dev: ${{ inputs.npm_audit_omit_dev }}
+      severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
+
+  scheduled-audit-fix:
+    needs: scan_source
+    # scheduled/manual runs have no PR branch: fix against the default branch
+    # so the resulting PR can be merged directly
+    if: |
+      always()
+      && inputs.enable_npm_audit_autofix
+      && needs.scan_source.outputs.npm_audit_result == 'failure'
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    uses: ./.github/workflows/npm-audit-autofix.yml
+    with:
+      mode: "scheduled"
+      base_branch: ${{ inputs.audit_fix_base_branch }}
       root_dir: ${{ inputs.root_dir }}
       node_version: "24.16.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
