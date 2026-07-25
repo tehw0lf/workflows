@@ -42,8 +42,8 @@ on:
         type: string
       enable_npm_audit_autofix:
         description:
-          "run npm audit fix and open a PR when npm audit fails (dependabot
-          PRs and scheduled/manual runs)"
+          "run npm audit fix and open a PR when npm audit fails (any PR branch
+          in this repo, plus scheduled/manual runs)"
         default: true
         required: false
         type: boolean
@@ -70,17 +70,17 @@ on:
       npm_audit_fix_branch:
         description: "fix branch created by the npm audit auto-fix"
         value:
-          ${{ jobs.dependabot-audit-fix.outputs.fix_branch ||
+          ${{ jobs.branch-audit-fix.outputs.fix_branch ||
           jobs.scheduled-audit-fix.outputs.fix_branch }}
       npm_audit_fix_pr:
         description: "url of the auto-fix PR"
         value:
-          ${{ jobs.dependabot-audit-fix.outputs.fix_pr_url ||
+          ${{ jobs.branch-audit-fix.outputs.fix_pr_url ||
           jobs.scheduled-audit-fix.outputs.fix_pr_url }}
       npm_audit_clean_after_fix:
         description: "whether audit is clean after auto-fix"
         value:
-          ${{ jobs.dependabot-audit-fix.outputs.audit_clean_after_fix ||
+          ${{ jobs.branch-audit-fix.outputs.audit_clean_after_fix ||
           jobs.scheduled-audit-fix.outputs.audit_clean_after_fix }}
 
 jobs:
@@ -225,18 +225,21 @@ jobs:
             ${{ inputs.root_dir }}/semgrep.sarif
           if-no-files-found: ignore
 
-  dependabot-audit-fix:
+  branch-audit-fix:
     needs: scan_source
+    # any PR branch in this repo - Dependabot and regular feature branches
+    # alike. Forks are excluded: their GITHUB_TOKEN is read-only, so the push
+    # would fail, and pushing into a fork is not something we want anyway.
     if: |
       always()
       && inputs.enable_npm_audit_autofix
       && needs.scan_source.outputs.npm_audit_result == 'failure'
-      && github.actor == 'dependabot[bot]'
       && inputs.head_ref != ''
       && !startsWith(inputs.head_ref, 'audit-fix/')
+      && github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/npm-audit-autofix.yml
     with:
-      mode: "dependabot"
+      mode: "branch"
       head_ref: ${{ inputs.head_ref }}
       root_dir: ${{ inputs.root_dir }}
       node_version: "24.16.0"
