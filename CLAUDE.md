@@ -101,6 +101,37 @@ Scans source code and dependencies **before building**:
 - Uploads SARIF reports to GitHub Security tab
 - Fails fast to prevent building vulnerable code
 
+##### npm audit auto-fix (`npm-audit-autofix.yml`)
+When `npm audit` fails, this workflow runs `npm audit fix` and opens a PR with the
+resulting `package-lock.json` changes. It has two modes, both dispatched
+automatically from `security-scan-source.yml`:
+
+| | `dependabot` | `scheduled` |
+|---|---|---|
+| Trigger | `github.actor == 'dependabot[bot]'` on a PR | `schedule` or `workflow_dispatch` |
+| PR base | the Dependabot branch | default branch (or `audit_fix_base_branch`) |
+| Fix branch | `audit-fix/<dep-branch>-<sha>` (one per push) | `audit-fix/scheduled` (reused) |
+| Existing PR | new PR each time | updated in place, branch is force-pushed |
+
+The `scheduled` mode is the low-intervention path: the daily scan finds a new
+advisory, fixes it, and leaves a single mergeable PR against `main`. Because the
+fix branch is rebuilt from base on every run, later runs force-push it and edit
+the same PR instead of piling up duplicates.
+
+Both modes run `npm audit fix` **without** `--force`, so only semver-compatible
+updates are applied and `package.json` is never touched. Findings that need a
+major upgrade stay open and are called out in the PR body.
+
+**Configuration:**
+```yaml
+inputs:
+  enable_npm_audit_autofix: true  # Enable/disable both modes (default: enabled)
+  audit_fix_base_branch: ""       # Base for scheduled PRs (default: repo default branch)
+```
+
+Calling workflows need `contents: write` and `pull-requests: write` for the
+auto-fix job to push the branch and open the PR.
+
 #### Layer 2: Post-Build Artifact Scan (`security-scan-artifacts.yml`)
 Scans **build artifacts** before publishing:
 - **Trivy**: Comprehensive filesystem scanner for packages and dependencies
