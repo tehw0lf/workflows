@@ -54,8 +54,16 @@ jobs:
             fi
           elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          elif [[ -f pyproject.toml ]]; then
+            # Tool does not identify the ecosystem (e.g. "bash"), so fall back to
+            # whichever manifest is present.
+            VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          elif [[ -f package.json ]]; then
+            VERSION=$(jq -r .version package.json)
+          elif [[ -f Cargo.toml ]]; then
+            VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           else
-            echo "::notice::[Tag] Unsupported tool '${{ inputs.tool }}' for version extraction, skipping tag"
+            echo "::notice::[Tag] No supported manifest found for tool '${{ inputs.tool }}', skipping tag"
             exit 0
           fi
 
