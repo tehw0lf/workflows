@@ -809,4 +809,4 @@ ACTIONS_STEP_DEBUG: true
 
 ## 📄 License
 
-This workflow collection is available under the MIT License.
+This workflow collection is available under the MIT License. See [LICENSE](LICENSE) for the full text.
