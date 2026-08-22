@@ -1,0 +1,124 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "commitMessagePrefix": "chore(deps):",
+  "prConcurrentLimit": 5,
+  "enabledManagers": [
+    "custom.regex"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Trivy binary installed via install.sh, plus the matching cache key",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "install\\.sh \\| sh -s -- -b /usr/local/bin (?<currentValue>v\\d+\\.\\d+\\.\\d+)",
+        "key: \\$\\{\\{ runner\\.os \\}\\}-trivy-(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "aquasecurity/trivy",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Trivy version passed to aquasecurity/trivy-action",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "uses: aquasecurity/trivy-action@[^\\n]+\\n\\s+with:\\n\\s+version: \"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "aquasecurity/trivy",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Python security tools pinned via pip install",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "pip install \"?(?<depName>[a-zA-Z0-9._-]+)(?:\\[[a-zA-Z0-9,._-]+\\])?==(?<currentValue>[0-9][^\"\\s]*)\"?"
+      ],
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "description": "Node.js runtime version (setup-node inputs and reusable-workflow defaults)",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "node[-_]version: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"",
+        "node_version:\\n\\s+description: \"Node\\.js version to use\"\\n\\s+default: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "node",
+      "datasourceTemplate": "node-version",
+      "versioningTemplate": "node"
+    },
+    {
+      "customType": "regex",
+      "description": "Globally installed npm CLI",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "npm install -g npm@(?<currentValue>\\d+(?:\\.\\d+)*)"
+      ],
+      "depNameTemplate": "npm",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Node.js is pinned to the active LTS line; do not offer the current/odd release",
+      "matchDepNames": [
+        "node"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "npm CLI is pinned to a major only; patch/minor are not expressed in the pin",
+      "matchDepNames": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Security scanners: group so the engine version stays consistent across all scan jobs",
+      "matchDepNames": [
+        "aquasecurity/trivy"
+      ],
+      "groupName": "trivy"
+    },
+    {
+      "description": "Keep semgrep and bandit rule sets current; these gate the build",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "semgrep",
+        "bandit"
+      ],
+      "groupName": "python security tools"
+    }
+  ]
+}

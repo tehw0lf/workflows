@@ -352,10 +352,39 @@ Consistent pattern across all publishing workflows:
 This ensures publishing workflows only run when there are actual build outputs to publish.
 
 ### Automated Maintenance
-The repository includes Dependabot configuration (`.github/dependabot.yml`) for:
-- Weekly automated updates to GitHub Actions versions
-- Ensures security patches are applied promptly
-- Reduces manual maintenance burden
+Dependency updates are split between two bots with **no overlap**, so the same
+change is never proposed twice:
+
+| Bot | Scope | Config |
+|---|---|---|
+| Dependabot | `uses:` action references (SHA pins) | `.github/dependabot.yml` |
+| Renovate | version pins **inside** workflow steps | `renovate.json` |
+
+**Dependabot** handles GitHub Actions versions on a weekly schedule.
+
+**Renovate** covers what Dependabot structurally cannot see: versions that live
+in `run:` commands, `with:` inputs and workflow input defaults. Without it these
+pins silently rot — Trivy was once 5.5 months out of date while all 22 actions
+stayed current, because nothing was watching it.
+
+`renovate.json` sets `enabledManagers: ["custom.regex"]`, which is what keeps
+Renovate off the `uses:` lines that Dependabot owns. **Do not add
+`github-actions` to `enabledManagers`** unless Dependabot is removed first.
+
+Renovate's custom managers track:
+- **Trivy** — the `install.sh` version, the matching `actions/cache` key, and
+  the `version:` input of `aquasecurity/trivy-action`. All three are grouped
+  into one PR so every scan job keeps running the same engine version.
+- **semgrep / bandit** — `pip install <tool>==<version>`, grouped together.
+  Extras such as `bandit[toml]` are preserved on update.
+- **Node.js** — `node-version:` / `node_version:` inputs and the
+  `npm-audit-autofix.yml` default. Major updates are disabled so the pin stays
+  on the active LTS line rather than jumping to an odd/current release.
+- **npm CLI** — the `npm install -g npm@<major>` pin; minor/patch updates are
+  disabled since the pin only expresses a major.
+
+**When adding a new pinned tool version to a workflow, add a matching custom
+manager** — otherwise the pin is invisible to both bots and will go stale.
 
 ### Recent Optimizations (Phase 1-8)
 Key improvements made to the workflow suite:
