@@ -117,7 +117,7 @@ jobs:
 
       # Layer 1a: Semgrep SAST (all languages)
       - name: install semgrep
-        run: pip install semgrep
+        run: pip install semgrep==1.174.0
 
       - name: semgrep security scan
         id: semgrep
@@ -166,7 +166,7 @@ jobs:
 
       - name: upload semgrep SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: semgrep.sarif
         continue-on-error: true
@@ -174,7 +174,7 @@ jobs:
       # Layer 1b: Python-specific scanning
       - name: install bandit
         if: ${{ inputs.tool == 'uv' }}
-        run: pip install bandit[toml]
+        run: pip install "bandit[toml]==1.9.4"
 
       - name: bandit python SAST
         id: bandit
@@ -197,7 +197,7 @@ jobs:
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "24.16.0"
+          node-version: "24.19.0"
           cache: "${{ inputs.tool }}"
           cache-dependency-path: |
             ${{ inputs.root_dir }}/package-lock.json
@@ -242,7 +242,7 @@ jobs:
       mode: "branch"
       head_ref: ${{ inputs.head_ref }}
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.16.0"
+      node_version: "24.19.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
 
@@ -260,6 +260,6 @@ jobs:
       mode: "scheduled"
       base_branch: ${{ inputs.audit_fix_base_branch }}
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.16.0"
+      node_version: "24.19.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
