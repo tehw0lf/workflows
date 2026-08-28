@@ -24,6 +24,7 @@ jobs:
       packages: write       # Required for Docker/GHCR publishing
       security-events: write # Required for security scanning (SARIF uploads)
       id-token: write       # REQUIRED - Always needed (currently for npm Trusted Publishing, planned for future OIDC integrations)
+      attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
     with:
       tool: npm
       lint: "run lint"
@@ -355,6 +356,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - Always needed for OIDC (npm/Python Trusted Publishing + future integrations)
+      attestations: write   # Required by the build job (SBOM provenance attestation)
       actions: write        # Required for workflow management
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
@@ -371,6 +373,12 @@ jobs:
 - Planned for future OIDC integrations with other publishing targets (Docker registries, etc.)
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
 - Must be set at the top-level calling workflow, even if you're not publishing to npm, PyPI, or crates.io
+
+**`attestations: write`:**
+- Required by the `test_and_build` job, which attests SBOM provenance with Sigstore
+- Only takes effect for `tool: npm` / `tool: yarn`, but must be granted regardless —
+  permissions are evaluated before the job runs and cannot be made conditional
+- Omitting it fails the build at the attestation step, not at setup
 
 **`security-events: write`:**
 - Required for uploading SARIF reports to GitHub Security tab
@@ -492,16 +500,18 @@ project/
 The npm publishing workflow generates and attests Software Bill of Materials (SBOM) for supply chain security:
 - **Automatic SBOM generation**: Creates SBOM from package-lock.json/yarn.lock using CycloneDX
 - **Sigstore attestation**: Signs SBOM with keyless signing via GitHub's OIDC (eliminates need for signing keys)
-- **Format support**: SPDX (default) or CycloneDX formats
+- **Format**: CycloneDX (`sbom/sbom.cyclonedx.json`)
 - **Artifact retention**: SBOM uploaded as workflow artifact with 90-day retention
 - **Verification**: Consumers can verify attestations using `npm audit signatures`
 
-**Configuration:**
-```yaml
-inputs:
-  enable_sbom_attestation: "true"  # Enable/disable (default: enabled)
-  sbom_format: "spdx"              # spdx or cyclonedx (default: spdx)
-```
+**Configuration:** SBOM attestation is controlled by `enable_sbom_attestation`, an
+input of `test-and-build.yml` (default: `true`). It is **not exposed by the
+`build-test-publish.yml` orchestrator** — callers using the orchestrator get the
+default and cannot turn it off; to configure it, call `test-and-build.yml`
+directly. It only takes effect for `tool: npm` or `tool: yarn`.
+
+The SBOM is generated in **CycloneDX** format (`sbom/sbom.cyclonedx.json`). There
+is no `sbom_format` input.
 
 **Verifying SBOM attestations as a consumer:**
 ```bash
@@ -634,6 +644,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
+      attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
       actions: write        # Required for workflow management
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
@@ -652,6 +663,7 @@ jobs:
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
   id-token: write       # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
+  attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
   contents: read
   packages: write       # Required for Docker publishing to GHCR
   security-events: write # Required for security scanning (SARIF uploads)
@@ -669,6 +681,7 @@ with:
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
   id-token: write       # REQUIRED - Always needed (Python Trusted Publishing)
+  attestations: write   # Required by the build job (SBOM provenance attestation)
   contents: read
   security-events: write # Required for security scanning (SARIF uploads)
 with:
@@ -696,6 +709,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - For OIDC Trusted Publishing to crates.io
+      attestations: write   # Required by the build job (SBOM provenance attestation)
       actions: write
       contents: write
       packages: write
@@ -724,6 +738,7 @@ jobs:
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
   id-token: write       # REQUIRED - Always needed
+  attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
   contents: read
   security-events: write # Required for security scanning (SARIF uploads)
 with:

@@ -62,16 +62,18 @@ Each specialized for different targets:
 The npm publishing workflow generates and attests Software Bill of Materials (SBOM) for supply chain security:
 - **Automatic SBOM generation**: Creates SBOM from package-lock.json/yarn.lock using CycloneDX
 - **Sigstore attestation**: Signs SBOM with keyless signing via GitHub's OIDC (eliminates need for signing keys)
-- **Format support**: SPDX (default) or CycloneDX formats
+- **Format**: CycloneDX (`sbom/sbom.cyclonedx.json`)
 - **Artifact retention**: SBOM uploaded as workflow artifact with 90-day retention
 - **Verification**: Consumers can verify attestations using `npm audit signatures`
 
-**Configuration:**
-```yaml
-inputs:
-  enable_sbom_attestation: "true"  # Enable/disable (default: enabled)
-  sbom_format: "spdx"              # spdx or cyclonedx (default: spdx)
-```
+**Configuration:** SBOM attestation is controlled by `enable_sbom_attestation`, an
+input of `test-and-build.yml` (default: `true`). It is **not exposed by the
+`build-test-publish.yml` orchestrator** — callers using the orchestrator get the
+default and cannot turn it off; to configure it, call `test-and-build.yml`
+directly. It only takes effect for `tool: npm` or `tool: yarn`.
+
+The SBOM is generated in **CycloneDX** format (`sbom/sbom.cyclonedx.json`). There
+is no `sbom_format` input.
 
 **Verifying SBOM attestations as a consumer:**
 ```bash
@@ -280,6 +282,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - Always needed for OIDC (npm Trusted Publishing + future integrations)
+      attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
       actions: write        # Required for workflow management
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
@@ -294,6 +297,12 @@ jobs:
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
 - Must be set at the top-level calling workflow, even if not publishing to npm or PyPI
 - Cannot be controlled with `if` conditions - permissions are evaluated before job execution
+
+**Why is `attestations: write` required?**
+- The `test_and_build` job attests SBOM provenance with Sigstore and needs it
+- Only active for `tool: npm` / `tool: yarn`, but must be granted regardless —
+  permissions are evaluated before the job runs and cannot be conditional
+- Omitting it fails the build at the attestation step
 
 **Why is `security-events: write` required?**
 - Enables SARIF uploads to GitHub Security tab for code scanning alerts
@@ -316,6 +325,27 @@ Key parameters:
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
 - `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
 - Platform-specific metadata (`docker_meta`, `addon_guid`, etc.)
+
+**Complete input list** (41; mirror of `workflow_call.inputs` — verify against the
+YAML before relying on it):
+
+| Group | Inputs |
+|---|---|
+| Project | `tool`, `root_dir`, `head_ref`, `runner` |
+| Scripts | `install`, `format`, `lint`, `test`, `e2e`, `build_branch`, `build_main`, `post_build_script` |
+| Artifacts | `artifact_path` |
+| Docker | `docker_meta`, `docker_namespace`, `registry`, `platforms`, `docker_pre` |
+| npm | `libraries`, `library_path`, `npm_namespace`, `cyclonedx_ignore_npm_errors` |
+| Python | `publish_python_libraries` |
+| Rust | `rust_version`, `enable_clippy`, `enable_rustfmt`, `clippy_args`, `cargo_features`, `cargo_dry_run`, `cargo_package_name`, `cargo_publish_flags` |
+| Firefox | `addon_guid`, `xpi_path` |
+| Android | `app_root` |
+| Release | `publish_github_release`, `release_pre` |
+| Security | `enable_security_scanning`, `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
+
+Script inputs are appended to `tool`, so the value is the subcommand only
+(`build_main: "run build"`, not `"npm run build"`). Defaults are documented in the
+README's input table.
 
 **There is no `event_name` input.** Conditional execution reads `github.event_name`
 directly inside the workflow. Passing `event_name:` from a caller is an error — GitHub
