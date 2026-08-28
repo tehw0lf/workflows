@@ -56,26 +56,85 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 - ✅ Conditional deployment based on branch and inputs
 
 **Required Inputs:**
-- `event_name`: GitHub event name (required)
+- _None._ All inputs are optional; `tool` selects the build system. Publishing is gated on `github.event_name` internally — do **not** pass an `event_name` input, it does not exist.
 
-**Optional Inputs:**
-- `tool`: Build tool (npm, yarn, uv, cargo, ./gradlew, mvn, bash)
-- `lint`: Linting command
-- `test`: Test command
-- `build_main`: Build command for main branch
-- `artifact_path`: Path to build artifacts
-- `docker_meta`: Docker metadata JSON
-- `libraries`: Comma-separated list of libraries to publish
-- `rust_version`: Rust toolchain version (default: "stable")
-- `enable_clippy`: Run Clippy linting for Rust (default: true)
-- `enable_rustfmt`: Run Rustfmt checks for Rust (default: true)
-- `clippy_args`: Additional Clippy arguments (default: "-- -D warnings")
-- `cargo_features`: Cargo features to enable (e.g., "async,network")
-- `enable_security_scanning`: Enable/disable security scanning (default: "true")
-- `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
-- `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
-- `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
-- And many more...
+**Optional Inputs (complete):**
+
+All 41 inputs are optional. Grouped by purpose; defaults are the workflow's own.
+
+_Project & build_
+
+| Input | Default | Description |
+|---|---|---|
+| `tool` | `none` | Build tool: `npm`, `yarn`, `uv`, `cargo`, `./gradlew`, `mvn`, `bash` |
+| `root_dir` | `.` | Path to project root (set this for monorepos) |
+| `head_ref` | `""` | Branch that triggered the run — pass `${{ github.head_ref }}` |
+| `runner` | `ubuntu-latest` | Runner label for all jobs |
+| `install` | `""` | Install script |
+| `format` | `""` | Format script |
+| `lint` | `""` | Lint script |
+| `test` | `""` | Test script |
+| `e2e` | `""` | E2E test script |
+| `build_branch` | `""` | Build script for branch runs |
+| `build_main` | `""` | Build script for main-branch runs |
+| `post_build_script` | `""` | Script to run after the build step |
+| `artifact_path` | `""` | Path to build outputs to upload as an artifact |
+
+_Docker publishing_
+
+| Input | Default | Description |
+|---|---|---|
+| `docker_meta` | `""` | JSON array: `[{"name":"image","file":"Dockerfile"}]` |
+| `docker_namespace` | `tehw0lf` | Docker namespace |
+| `registry` | `ghcr.io` | Target registry |
+| `platforms` | `linux/amd64,linux/arm64` | Comma-separated build platforms |
+| `docker_pre` | `""` | Script to run before building the image |
+
+_npm publishing_
+
+| Input | Default | Description |
+|---|---|---|
+| `libraries` | `""` | Comma-separated libraries to publish |
+| `library_path` | `""` | Path to the libraries — **also gates whether the npm job runs at all** |
+| `npm_namespace` | `@tehw0lf` | npm scope |
+| `cyclonedx_ignore_npm_errors` | `false` | Pass `--ignore-npm-errors` during SBOM generation (needed with `overrides`) |
+
+_Python, Rust, Firefox, Android, GitHub releases_
+
+| Input | Default | Description |
+|---|---|---|
+| `publish_python_libraries` | `false` | Publish to PyPI (requires `tool: uv`) |
+| `rust_version` | `stable` | Rust toolchain version |
+| `enable_clippy` | `true` | Run Clippy |
+| `enable_rustfmt` | `true` | Run rustfmt check |
+| `clippy_args` | `-- -D warnings` | Extra Clippy arguments |
+| `cargo_features` | `""` | Features to enable, e.g. `async,network` |
+| `cargo_dry_run` | `false` | Dry-run instead of publishing to crates.io |
+| `cargo_package_name` | `""` | Crate name (defaults to workspace name) |
+| `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
+| `addon_guid` | `""` | Firefox add-on GUID — gates the Firefox job |
+| `xpi_path` | `""` | Path to the packaged `.xpi` — gates the Firefox job |
+| `app_root` | `""` | Android app root — gates the APK release job |
+| `publish_github_release` | `""` | Set to `"true"` to create a GitHub release |
+| `release_pre` | `""` | Script to run before the release |
+
+_Security scanning_
+
+| Input | Default | Description |
+|---|---|---|
+| `enable_security_scanning` | `true` | Master switch for all scanning layers |
+| `semgrep_rules` | `auto` | Ruleset: `auto`, `p/security-audit`, `p/owasp-top-ten`, `p/ci` |
+| `npm_audit_omit_dev` | `false` | Skip dev dependencies (use when dev-only vulns have no fix) |
+| `npm_audit_severity_threshold` | `moderate` | `low`, `moderate`, `high`, `critical` |
+| `trivy_severity` | `MEDIUM,HIGH,CRITICAL` | Severity levels to report |
+| `trivy_exit_code` | `1` | `0` = warn only, `1` = fail the build |
+
+**Inputs that gate a job.** Several publishing jobs run only when a specific input is
+non-empty, in addition to requiring a `push` event: `docker_meta` (Docker),
+`library_path` (npm), `addon_guid` **and** `xpi_path` (Firefox), `app_root` (Android),
+`artifact_path` **and** `publish_github_release: "true"` (GitHub release), and
+`tool: uv` **plus** `publish_python_libraries: "true"` (PyPI). Setting `libraries`
+without `library_path` silently publishes nothing.
 
 ### 2. Test and Build (`test-and-build.yml`)
 
@@ -644,7 +703,6 @@ jobs:
     with:
       tool: cargo
       artifact_path: target/release/my-crate
-      event_name: ${{ github.event_name }}
 
       # Rust configuration (all optional - defaults shown)
       rust_version: stable

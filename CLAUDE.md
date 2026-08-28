@@ -38,7 +38,7 @@ build-test-publish.yml (orchestrator)
 ### Universal Workflow (`build-test-publish.yml`)
 The main orchestrator that:
 - Takes comprehensive inputs for all supported tools and platforms
-- Conditionally triggers publishing workflows based on `event_name` and input parameters
+- Conditionally triggers publishing workflows based on `github.event_name` (push vs pull_request) and input parameters
 - Supports multi-tool builds (npm, yarn, uv, ./gradlew, mvn, bash)
 
 ### Test and Build (`test-and-build.yml`)
@@ -301,15 +301,41 @@ jobs:
 - Required for Semgrep, Bandit, Trivy, and Grype security reports
 
 ### Workflow Input Patterns
-Key input parameters across workflows:
-- `tool`: Determines build system (npm, yarn, uv, ./gradlew, mvn, bash)
+
+**The `workflow_call.inputs` block of `build-test-publish.yml` is the single source of
+truth** for the 41 available inputs — read it rather than trusting any list, here or in
+the README. The README's "Optional Inputs (complete)" table mirrors it and must be
+updated in the same commit whenever an input is added, renamed or removed.
+
+Key parameters:
+- `tool`: Determines build system (`npm`, `yarn`, `uv`, `cargo`, `./gradlew`, `mvn`, `bash`)
+- `root_dir`: Project root — required for monorepos, defaults to `.`
 - `artifact_path`: Where build outputs are stored/retrieved
-- `event_name`: Controls conditional execution (push vs pull_request)
-- `enable_security_scanning`: Enable/disable dual-layer security scanning (default: "true")
+- `enable_security_scanning`: Enable/disable security scanning (default: "true")
 - `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
 - `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
-- Platform-specific metadata (docker_meta, addon_guid, etc.)
+- Platform-specific metadata (`docker_meta`, `addon_guid`, etc.)
+
+**There is no `event_name` input.** Conditional execution reads `github.event_name`
+directly inside the workflow. Passing `event_name:` from a caller is an error — GitHub
+rejects unknown inputs to a reusable workflow.
+
+**Inputs that gate a job.** Publishing jobs require a `push` event *plus* their own
+non-empty input. Missing the second half is the usual cause of "the job silently did
+not run":
+
+| Job | Gated on |
+|---|---|
+| Docker | `docker_meta` |
+| npm | `library_path` (**not** `libraries`) |
+| PyPI | `tool: uv` **and** `publish_python_libraries: "true"` |
+| Firefox | `addon_guid` **and** `xpi_path` |
+| Android | `app_root` |
+| GitHub release | `artifact_path` **and** `publish_github_release: "true"` |
+| crates.io | `tool: cargo` |
+
+Setting `libraries` without `library_path` publishes nothing at all.
 
 #### GitHub Release Versioning
 Releases use automatic version extraction from the project manifest — no `release_tag` input needed:
