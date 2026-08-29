@@ -116,7 +116,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `addon_guid` | `""` | Firefox add-on GUID — gates the Firefox job |
 | `xpi_path` | `""` | Path to the packaged `.xpi` — gates the Firefox job |
 | `app_root` | `""` | Android app root — gates the APK release job |
-| `publish_github_release` | `""` | Set to `"true"` to create a GitHub release |
+| `publish_github_release` | `false` | Set to `true` to create a GitHub release |
 | `release_pre` | `""` | Script to run before the release |
 
 _Security scanning_
@@ -130,11 +130,33 @@ _Security scanning_
 | `trivy_severity` | `MEDIUM,HIGH,CRITICAL` | Severity levels to report |
 | `trivy_exit_code` | `1` | `0` = warn only, `1` = fail the build |
 
+**Input types are enforced — never quote a boolean or number.** Every input is
+declared `boolean`, `number` or `string`, and GitHub matches the caller's value
+against that type **without coercion**. Passing `publish_github_release: "true"`
+(a string) to a `boolean` input does not evaluate as true — it aborts the entire
+run with `startup_failure` before a single job starts, and the log shows no
+failing step because nothing ran.
+
+```yaml
+publish_github_release: true      # correct
+publish_github_release: "true"    # startup_failure - the whole run is rejected
+trivy_exit_code: 1                # correct
+trivy_exit_code: "1"              # startup_failure
+```
+
+Booleans here are `publish_github_release`, `publish_python_libraries`,
+`enable_security_scanning`, `npm_audit_omit_dev`, `enable_clippy`,
+`enable_rustfmt`, `cargo_dry_run` and `cyclonedx_ignore_npm_errors`; numbers are
+`trivy_exit_code` and (in `security-scan-dast.yml`) `max_duration_minutes`.
+Note that `actionlint` does **not** catch this class of error — it accepts
+mismatched types, unknown input names and all — so the first sign of trouble is a
+run that dies at startup.
+
 **Inputs that gate a job.** Several publishing jobs run only when a specific input is
 non-empty, in addition to requiring a `push` event: `docker_meta` (Docker),
 `library_path` (npm), `addon_guid` **and** `xpi_path` (Firefox), `app_root` (Android),
-`artifact_path` **and** `publish_github_release: "true"` (GitHub release),
-`tool: uv` **plus** `publish_python_libraries: "true"` (PyPI, which tags rather
+`artifact_path` **and** `publish_github_release: true` (GitHub release),
+`tool: uv` **plus** `publish_python_libraries: true` (PyPI, which tags rather
 than uploads — see §5), and `tool: cargo` alone (crates.io). Setting `libraries`
 without `library_path` silently publishes nothing.
 
@@ -189,7 +211,7 @@ gate in front of `set-git-tag.yml`, which tags the release. Publishing then
 happens in *your* repository: add a workflow triggered on tag push that runs
 `uv publish` directly, so the publish is not routed through a reusable workflow.
 
-So `publish_python_libraries: "true"` gives you a validated build and a version
+So `publish_python_libraries: true` gives you a validated build and a version
 tag — not a PyPI upload. The job passing does **not** mean a release was
 published.
 
@@ -286,7 +308,7 @@ Aggregates and reports results from all publishing workflows.
 **Configuration:**
 ```yaml
 with:
-  enable_security_scanning: "true"  # Enable/disable (default: enabled)
+  enable_security_scanning: true  # Enable/disable (default: enabled)
   semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
 ```
 
@@ -323,7 +345,7 @@ with:
 ```yaml
 with:
   trivy_severity: "MEDIUM,HIGH,CRITICAL"  # Severity threshold
-  trivy_exit_code: "1"                     # 0=warn only, 1=fail build
+  trivy_exit_code: 1                     # 0=warn only, 1=fail build
 ```
 
 **Defense-in-depth architecture:**
@@ -578,10 +600,10 @@ Verifies published Docker images:
 #### Configuration
 ```yaml
 with:
-  enable_security_scanning: "true"           # Enable/disable (default: enabled)
+  enable_security_scanning: true           # Enable/disable (default: enabled)
   semgrep_rules: "auto"                      # Semgrep ruleset
   trivy_severity: "MEDIUM,HIGH,CRITICAL"     # Severity threshold
-  trivy_exit_code: "1"                        # 0=warn only, 1=fail build
+  trivy_exit_code: 1                        # 0=warn only, 1=fail build
 ```
 
 #### Execution Flow
@@ -706,7 +728,7 @@ with:
   test: "run test"
   build_main: "build"
   artifact_path: "dist"
-  publish_python_libraries: "true"
+  publish_python_libraries: true
 ```
 
 ### Rust Crate
@@ -740,10 +762,10 @@ jobs:
       clippy_args: "-- -D warnings"
 
       # Security scanning
-      enable_security_scanning: "true"
+      enable_security_scanning: true
 
       # GitHub release configuration (optional)
-      publish_github_release: "true"
+      publish_github_release: true
 ```
 
 **Note:** Before first publish, configure Trusted Publisher on crates.io for your repository. No secrets required!
@@ -862,20 +884,20 @@ permissions:
 - Check the security tab for specific findings
 - Review Semgrep rules configuration (`semgrep_rules` input)
 - For false positives, add `# nosemgrep` comments or adjust ruleset
-- Disable security scanning temporarily with `enable_security_scanning: "false"` (not recommended)
+- Disable security scanning temporarily with `enable_security_scanning: false` (not recommended)
 
 #### Error: "Trivy found HIGH vulnerabilities"
 **Solution:**
 - Review vulnerabilities in the security tab or workflow output
 - Update dependencies to patched versions
 - Adjust severity threshold if needed: `trivy_severity: "CRITICAL"` (less strict)
-- Set `trivy_exit_code: "0"` to warn only (not recommended for production)
+- Set `trivy_exit_code: 0` to warn only (not recommended for production)
 
 #### Disable Security Scanning (Not Recommended)
 If you need to temporarily disable security scanning:
 ```yaml
 with:
-  enable_security_scanning: "false"
+  enable_security_scanning: false
 ```
 
 **Warning:** Disabling security scanning removes critical protection against vulnerabilities. Only use this for testing or non-production workflows.

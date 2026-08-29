@@ -165,10 +165,10 @@ Verifies **published Docker images** after deployment:
 **Configuration:**
 ```yaml
 inputs:
-  enable_security_scanning: "true"  # Enable/disable (default: enabled)
+  enable_security_scanning: true  # Enable/disable (default: enabled)
   semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
   trivy_severity: "MEDIUM,HIGH,CRITICAL"  # Severity threshold
-  trivy_exit_code: "1"               # 0=warn only, 1=fail build
+  trivy_exit_code: 1               # 0=warn only, 1=fail build
 ```
 
 **All security tools are:**
@@ -320,10 +320,10 @@ Key parameters:
 - `tool`: Determines build system (`npm`, `yarn`, `uv`, `cargo`, `./gradlew`, `mvn`, `bash`)
 - `root_dir`: Project root — required for monorepos, defaults to `.`
 - `artifact_path`: Where build outputs are stored/retrieved
-- `enable_security_scanning`: Enable/disable security scanning (default: "true")
+- `enable_security_scanning`: Enable/disable security scanning (default: `true`)
 - `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
-- `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
+- `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
 - Platform-specific metadata (`docker_meta`, `addon_guid`, etc.)
 
 **Complete input list** (42; mirror of `workflow_call.inputs` — verify against the
@@ -351,6 +351,23 @@ README's input table.
 directly inside the workflow. Passing `event_name:` from a caller is an error — GitHub
 rejects unknown inputs to a reusable workflow.
 
+**Input types are enforced; there is no coercion.** A quoted `"true"` passed to a
+`type: boolean` input fails the whole run with `startup_failure` before any job
+starts — it does not evaluate as truthy, and no step appears in the log. Same for
+a quoted number against a `type: number` input. This is verified behaviour, not
+inference. `actionlint` does not catch it (it accepts wrong types and even
+unknown input names), so the lint gate offers no protection here.
+
+Booleans: `publish_github_release`, `publish_python_libraries`,
+`enable_security_scanning`, `npm_audit_omit_dev`, `enable_clippy`,
+`enable_rustfmt`, `cargo_dry_run`, `cyclonedx_ignore_npm_errors`, and
+`enable_sbom_attestation` / `enable_npm_audit_autofix` / `fail_on_warn` in the
+sub-workflows. Numbers: `trivy_exit_code`, `max_duration_minutes`.
+
+When changing an input's type, **update every caller repo first** — unquoted
+values are valid under both `string` and the stricter type, so callers can land
+ahead of the type change with no breaking window.
+
 **Inputs that gate a job.** Publishing jobs require a `push` event *plus* their own
 non-empty input. Missing the second half is the usual cause of "the job silently did
 not run":
@@ -359,10 +376,10 @@ not run":
 |---|---|
 | Docker | `docker_meta` |
 | npm | `library_path` (**not** `libraries`) |
-| PyPI (tag only, upload parked) | `tool: uv` **and** `publish_python_libraries: "true"` |
+| PyPI (tag only, upload parked) | `tool: uv` **and** `publish_python_libraries: true` |
 | Firefox | `addon_guid` **and** `xpi_path` |
 | Android | `app_root` |
-| GitHub release | `artifact_path` **and** `publish_github_release: "true"` |
+| GitHub release | `artifact_path` **and** `publish_github_release: true` |
 | crates.io | `tool: cargo` |
 
 Setting `libraries` without `library_path` publishes nothing at all.
@@ -380,7 +397,7 @@ The pipeline tags `vX.Y.Z` and creates the release. If the tag already exists, t
 ```yaml
 uses: ./.github/workflows/build-test-publish.yml
 with:
-  publish_github_release: "true"
+  publish_github_release: true
   # No release_tag needed — version is read from package.json / pyproject.toml
 ```
 

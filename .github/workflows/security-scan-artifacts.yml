@@ -30,9 +30,9 @@ on:
         type: string
       trivy_exit_code:
         description: "exit code when vulnerabilities are found (0=continue, 1=fail)"
-        default: "1"
+        default: 1
         required: false
-        type: string
+        type: number
       docker_meta:
         description: "docker metadata as json array ([{'name':'docker-image-name','file':'docker/app/Dockerfile'}])"
         default: ""
