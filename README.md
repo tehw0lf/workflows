@@ -24,6 +24,7 @@ jobs:
       packages: write       # Required for Docker/GHCR publishing
       security-events: write # Required for security scanning (SARIF uploads)
       id-token: write       # REQUIRED - Always needed (currently for npm Trusted Publishing, planned for future OIDC integrations)
+      attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
     with:
       tool: npm
       lint: "run lint"
@@ -56,26 +57,86 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 - ✅ Conditional deployment based on branch and inputs
 
 **Required Inputs:**
-- `event_name`: GitHub event name (required)
+- _None._ All inputs are optional; `tool` selects the build system. Publishing is gated on `github.event_name` internally — do **not** pass an `event_name` input, it does not exist.
 
-**Optional Inputs:**
-- `tool`: Build tool (npm, yarn, uv, cargo, ./gradlew, mvn, bash)
-- `lint`: Linting command
-- `test`: Test command
-- `build_main`: Build command for main branch
-- `artifact_path`: Path to build artifacts
-- `docker_meta`: Docker metadata JSON
-- `libraries`: Comma-separated list of libraries to publish
-- `rust_version`: Rust toolchain version (default: "stable")
-- `enable_clippy`: Run Clippy linting for Rust (default: true)
-- `enable_rustfmt`: Run Rustfmt checks for Rust (default: true)
-- `clippy_args`: Additional Clippy arguments (default: "-- -D warnings")
-- `cargo_features`: Cargo features to enable (e.g., "async,network")
-- `enable_security_scanning`: Enable/disable security scanning (default: "true")
-- `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
-- `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
-- `trivy_exit_code`: Fail build on vulnerabilities (default: "1")
-- And many more...
+**Optional Inputs (complete):**
+
+All 42 inputs are optional. Grouped by purpose; defaults are the workflow's own.
+
+_Project & build_
+
+| Input | Default | Description |
+|---|---|---|
+| `tool` | `none` | Build tool: `npm`, `yarn`, `uv`, `cargo`, `./gradlew`, `mvn`, `bash` |
+| `root_dir` | `.` | Path to project root (set this for monorepos) |
+| `head_ref` | `""` | Branch that triggered the run — pass `${{ github.head_ref }}` |
+| `runner` | `ubuntu-latest` | Runner label for all jobs |
+| `install` | `""` | Install script |
+| `format` | `""` | Format script |
+| `lint` | `""` | Lint script |
+| `test` | `""` | Test script |
+| `e2e` | `""` | E2E test script |
+| `build_branch` | `""` | Build script for branch runs |
+| `build_main` | `""` | Build script for main-branch runs |
+| `post_build_script` | `""` | Script to run after the build step |
+| `artifact_path` | `""` | Path to build outputs to upload as an artifact |
+
+_Docker publishing_
+
+| Input | Default | Description |
+|---|---|---|
+| `docker_meta` | `""` | JSON array: `[{"name":"image","file":"Dockerfile"}]` |
+| `docker_namespace` | `tehw0lf` | Docker namespace |
+| `registry` | `ghcr.io` | Target registry |
+| `platforms` | `linux/amd64,linux/arm64` | Comma-separated build platforms |
+| `docker_pre` | `""` | Script to run before building the image |
+
+_npm publishing_
+
+| Input | Default | Description |
+|---|---|---|
+| `libraries` | `""` | Comma-separated libraries to publish |
+| `library_path` | `""` | Path to the libraries — **also gates whether the npm job runs at all** |
+| `npm_namespace` | `@tehw0lf` | npm scope |
+| `cyclonedx_ignore_npm_errors` | `false` | Pass `--ignore-npm-errors` during SBOM generation (needed with `overrides`) |
+
+_Python, Rust, Firefox, Android, GitHub releases_
+
+| Input | Default | Description |
+|---|---|---|
+| `publish_python_libraries` | `false` | Validate build + tag for PyPI release (requires `tool: uv`; upload is parked, see §5) |
+| `rust_version` | `stable` | Rust toolchain version |
+| `enable_clippy` | `true` | Run Clippy |
+| `enable_rustfmt` | `true` | Run rustfmt check |
+| `clippy_args` | `-- -D warnings` | Extra Clippy arguments |
+| `cargo_features` | `""` | Features to enable, e.g. `async,network` |
+| `cargo_dry_run` | `false` | Dry-run instead of publishing to crates.io |
+| `cargo_package_name` | `""` | Crate name (defaults to workspace name) |
+| `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
+| `addon_guid` | `""` | Firefox add-on GUID — gates the Firefox job |
+| `xpi_path` | `""` | Path to the packaged `.xpi` — gates the Firefox job |
+| `app_root` | `""` | Android app root — gates the APK release job |
+| `publish_github_release` | `""` | Set to `"true"` to create a GitHub release |
+| `release_pre` | `""` | Script to run before the release |
+
+_Security scanning_
+
+| Input | Default | Description |
+|---|---|---|
+| `enable_security_scanning` | `true` | Master switch for all scanning layers |
+| `semgrep_rules` | `auto` | Ruleset: `auto`, `p/security-audit`, `p/owasp-top-ten`, `p/ci` |
+| `npm_audit_omit_dev` | `false` | Skip dev dependencies (use when dev-only vulns have no fix) |
+| `npm_audit_severity_threshold` | `moderate` | `low`, `moderate`, `high`, `critical` |
+| `trivy_severity` | `MEDIUM,HIGH,CRITICAL` | Severity levels to report |
+| `trivy_exit_code` | `1` | `0` = warn only, `1` = fail the build |
+
+**Inputs that gate a job.** Several publishing jobs run only when a specific input is
+non-empty, in addition to requiring a `push` event: `docker_meta` (Docker),
+`library_path` (npm), `addon_guid` **and** `xpi_path` (Firefox), `app_root` (Android),
+`artifact_path` **and** `publish_github_release: "true"` (GitHub release),
+`tool: uv` **plus** `publish_python_libraries: "true"` (PyPI, which tags rather
+than uploads — see §5), and `tool: cargo` alone (crates.io). Setting `libraries`
+without `library_path` silently publishes nothing.
 
 ### 2. Test and Build (`test-and-build.yml`)
 
@@ -116,16 +177,30 @@ Publishes Node.js libraries to npm registry using **Trusted Publishing** (Proven
 
 ### 5. Python Libraries (`publish-python-libraries.yml`)
 
-Publishes Python packages to PyPI using `uv` and **Trusted Publishing** (Provenance).
+> ⚠️ **Does not upload to PyPI right now — this is deliberate, not a defect.**
+> The direct `uv publish` step was removed in March 2026 (`9283f81`) because
+> PyPI's Trusted Publishing does not work for a package published *through* a
+> reusable workflow. The step is parked, not abandoned: it goes back in once
+> PyPI supports this, so leave `publish_python_libraries` wired up in callers
+> that will want it.
+
+**What it does today:** validates that the `build` artifact exists, acting as a
+gate in front of `set-git-tag.yml`, which tags the release. Publishing then
+happens in *your* repository: add a workflow triggered on tag push that runs
+`uv publish` directly, so the publish is not routed through a reusable workflow.
+
+So `publish_python_libraries: "true"` gives you a validated build and a version
+tag — not a PyPI upload. The job passing does **not** mean a release was
+published.
 
 **Features:**
-- ✅ **Trusted Publishing**: No UV_TOKEN required - uses OpenID Connect (OIDC)
-- ✅ UV package manager support
-- ✅ Automatic dependency management
 - ✅ Explicit artifact validation with clear error messages
+- ✅ Feeds the tag job that triggers your repo's own publishing workflow
 - ✅ Timeout protection (15 minutes)
+- ⏸️ Trusted Publishing — parked upstream, see the note above
 
-**Important:** Requires `id-token: write` permission instead of UV_TOKEN secret
+**Important:** `id-token: write` is still required; the job requests the token
+even while the upload step is parked.
 
 ### 6. Rust/Cargo Crates (`publish-crates-io.yml`)
 
@@ -296,6 +371,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - Always needed for OIDC (npm/Python Trusted Publishing + future integrations)
+      attestations: write   # Required by the build job (SBOM provenance attestation)
       actions: write        # Required for workflow management
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
@@ -312,6 +388,12 @@ jobs:
 - Planned for future OIDC integrations with other publishing targets (Docker registries, etc.)
 - Due to GitHub Actions limitations, permissions cannot be conditionally granted in reusable workflows
 - Must be set at the top-level calling workflow, even if you're not publishing to npm, PyPI, or crates.io
+
+**`attestations: write`:**
+- Required by the `test_and_build` job, which attests SBOM provenance with Sigstore
+- Only takes effect for `tool: npm` / `tool: yarn`, but must be granted regardless —
+  permissions are evaluated before the job runs and cannot be made conditional
+- Omitting it fails the build at the attestation step, not at setup
 
 **`security-events: write`:**
 - Required for uploading SARIF reports to GitHub Security tab
@@ -332,7 +414,7 @@ GITHUB_TOKEN: # Auto-provided by GitHub
 # Requires: id-token: write permission (see above)
 
 # For Python publishing - NO UV_TOKEN NEEDED!
-# Uses Trusted Publishing (Provenance) with OIDC
+# Upload step is currently parked (see §5); the job tags instead
 # Requires: id-token: write permission (see above)
 
 # For Rust/Cargo publishing - NO CARGO_REGISTRY_TOKEN NEEDED!
@@ -433,16 +515,18 @@ project/
 The npm publishing workflow generates and attests Software Bill of Materials (SBOM) for supply chain security:
 - **Automatic SBOM generation**: Creates SBOM from package-lock.json/yarn.lock using CycloneDX
 - **Sigstore attestation**: Signs SBOM with keyless signing via GitHub's OIDC (eliminates need for signing keys)
-- **Format support**: SPDX (default) or CycloneDX formats
+- **Format**: CycloneDX (`sbom/sbom.cyclonedx.json`)
 - **Artifact retention**: SBOM uploaded as workflow artifact with 90-day retention
 - **Verification**: Consumers can verify attestations using `npm audit signatures`
 
-**Configuration:**
-```yaml
-inputs:
-  enable_sbom_attestation: "true"  # Enable/disable (default: enabled)
-  sbom_format: "spdx"              # spdx or cyclonedx (default: spdx)
-```
+**Configuration:** SBOM attestation is controlled by `enable_sbom_attestation`, an
+input of `test-and-build.yml` (default: `true`). It is **not exposed by the
+`build-test-publish.yml` orchestrator** — callers using the orchestrator get the
+default and cannot turn it off; to configure it, call `test-and-build.yml`
+directly. It only takes effect for `tool: npm` or `tool: yarn`.
+
+The SBOM is generated in **CycloneDX** format (`sbom/sbom.cyclonedx.json`). There
+is no `sbom_format` input.
 
 **Verifying SBOM attestations as a consumer:**
 ```bash
@@ -575,6 +659,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
+      attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
       actions: write        # Required for workflow management
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
@@ -593,6 +678,7 @@ jobs:
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
   id-token: write       # REQUIRED - Always needed (npm Trusted Publishing + future OIDC)
+  attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
   contents: read
   packages: write       # Required for Docker publishing to GHCR
   security-events: write # Required for security scanning (SARIF uploads)
@@ -610,6 +696,7 @@ with:
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
   id-token: write       # REQUIRED - Always needed (Python Trusted Publishing)
+  attestations: write   # Required by the build job (SBOM provenance attestation)
   contents: read
   security-events: write # Required for security scanning (SARIF uploads)
 with:
@@ -637,6 +724,7 @@ jobs:
     uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
     permissions:
       id-token: write       # REQUIRED - For OIDC Trusted Publishing to crates.io
+      attestations: write   # Required by the build job (SBOM provenance attestation)
       actions: write
       contents: write
       packages: write
@@ -644,7 +732,6 @@ jobs:
     with:
       tool: cargo
       artifact_path: target/release/my-crate
-      event_name: ${{ github.event_name }}
 
       # Rust configuration (all optional - defaults shown)
       rust_version: stable
@@ -666,6 +753,7 @@ jobs:
 uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
 permissions:
   id-token: write       # REQUIRED - Always needed
+  attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
   contents: read
   security-events: write # Required for security scanning (SARIF uploads)
 with:
