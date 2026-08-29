@@ -104,7 +104,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 
 | Input | Default | Description |
 |---|---|---|
-| `publish_python_libraries` | `false` | Publish to PyPI (requires `tool: uv`) |
+| `publish_python_libraries` | `false` | Validate build + tag for PyPI release (requires `tool: uv`; upload is parked, see §5) |
 | `rust_version` | `stable` | Rust toolchain version |
 | `enable_clippy` | `true` | Run Clippy |
 | `enable_rustfmt` | `true` | Run rustfmt check |
@@ -176,16 +176,30 @@ Publishes Node.js libraries to npm registry using **Trusted Publishing** (Proven
 
 ### 5. Python Libraries (`publish-python-libraries.yml`)
 
-Publishes Python packages to PyPI using `uv` and **Trusted Publishing** (Provenance).
+> ⚠️ **Does not upload to PyPI right now — this is deliberate, not a defect.**
+> The direct `uv publish` step was removed in March 2026 (`9283f81`) because
+> PyPI's Trusted Publishing does not work for a package published *through* a
+> reusable workflow. The step is parked, not abandoned: it goes back in once
+> PyPI supports this, so leave `publish_python_libraries` wired up in callers
+> that will want it.
+
+**What it does today:** validates that the `build` artifact exists, acting as a
+gate in front of `set-git-tag.yml`, which tags the release. Publishing then
+happens in *your* repository: add a workflow triggered on tag push that runs
+`uv publish` directly, so the publish is not routed through a reusable workflow.
+
+So `publish_python_libraries: "true"` gives you a validated build and a version
+tag — not a PyPI upload. The job passing does **not** mean a release was
+published.
 
 **Features:**
-- ✅ **Trusted Publishing**: No UV_TOKEN required - uses OpenID Connect (OIDC)
-- ✅ UV package manager support
-- ✅ Automatic dependency management
 - ✅ Explicit artifact validation with clear error messages
+- ✅ Feeds the tag job that triggers your repo's own publishing workflow
 - ✅ Timeout protection (15 minutes)
+- ⏸️ Trusted Publishing — parked upstream, see the note above
 
-**Important:** Requires `id-token: write` permission instead of UV_TOKEN secret
+**Important:** `id-token: write` is still required; the job requests the token
+even while the upload step is parked.
 
 ### 6. Rust/Cargo Crates (`publish-crates-io.yml`)
 
@@ -399,7 +413,7 @@ GITHUB_TOKEN: # Auto-provided by GitHub
 # Requires: id-token: write permission (see above)
 
 # For Python publishing - NO UV_TOKEN NEEDED!
-# Uses Trusted Publishing (Provenance) with OIDC
+# Upload step is currently parked (see §5); the job tags instead
 # Requires: id-token: write permission (see above)
 
 # For Rust/Cargo publishing - NO CARGO_REGISTRY_TOKEN NEEDED!

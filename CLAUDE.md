@@ -53,7 +53,7 @@ Core workflow that:
 Each specialized for different targets:
 - **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
 - **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**, **SBOM generation and attestation with Sigstore**
-- **Python**: UV-based publishing to PyPI with explicit artifact validation, **uses OIDC Trusted Publishing (no UV_TOKEN required)**
+- **Python**: artifact validation + version tag; the direct `uv publish` step is **parked** (PyPI Trusted Publishing does not work through a reusable workflow) — publish from a tag-triggered workflow in the calling repo
 - **Firefox**: XPI packaging and AMO publishing
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
@@ -359,7 +359,7 @@ not run":
 |---|---|
 | Docker | `docker_meta` |
 | npm | `library_path` (**not** `libraries`) |
-| PyPI | `tool: uv` **and** `publish_python_libraries: "true"` |
+| PyPI (tag only, upload parked) | `tool: uv` **and** `publish_python_libraries: "true"` |
 | Firefox | `addon_guid` **and** `xpi_path` |
 | Android | `app_root` |
 | GitHub release | `artifact_path` **and** `publish_github_release: "true"` |
