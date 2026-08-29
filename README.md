@@ -133,8 +133,9 @@ _Security scanning_
 **Inputs that gate a job.** Several publishing jobs run only when a specific input is
 non-empty, in addition to requiring a `push` event: `docker_meta` (Docker),
 `library_path` (npm), `addon_guid` **and** `xpi_path` (Firefox), `app_root` (Android),
-`artifact_path` **and** `publish_github_release: "true"` (GitHub release), and
-`tool: uv` **plus** `publish_python_libraries: "true"` (PyPI). Setting `libraries`
+`artifact_path` **and** `publish_github_release: "true"` (GitHub release),
+`tool: uv` **plus** `publish_python_libraries: "true"` (PyPI, which tags rather
+than uploads — see §5), and `tool: cargo` alone (crates.io). Setting `libraries`
 without `library_path` silently publishes nothing.
 
 ### 2. Test and Build (`test-and-build.yml`)
