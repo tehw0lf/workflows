@@ -39,7 +39,7 @@ build-test-publish.yml (orchestrator)
 The main orchestrator that:
 - Takes comprehensive inputs for all supported tools and platforms
 - Conditionally triggers publishing workflows based on `github.event_name` (push vs pull_request) and input parameters
-- Supports multi-tool builds (npm, yarn, uv, ./gradlew, mvn, bash)
+- Supports multi-tool builds (npm, yarn, uv, cargo, ./gradlew, mvn, bash)
 
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
