@@ -132,14 +132,14 @@ on:
         type: string
       publish_github_release:
         description: "publish github release"
-        default: ""
+        default: false
         required: false
-        type: string
+        type: boolean
       publish_python_libraries:
         description: "publish python libraries"
-        default: "false"
+        default: false
         required: false
-        type: string
+        type: boolean
       release_pre:
         description: "run before performing github release"
         default: ""
@@ -147,9 +147,9 @@ on:
         type: string
       enable_security_scanning:
         description: "enable dual-layer security scanning (source + artifacts)"
-        default: "true"
+        default: true
         required: false
-        type: string
+        type: boolean
       semgrep_rules:
         description: "semgrep ruleset (auto, p/security-audit, p/owasp-top-ten, p/ci, etc.)"
         default: "auto"
@@ -172,9 +172,9 @@ on:
         type: string
       trivy_exit_code:
         description: "exit code when vulnerabilities are found (0=continue, 1=fail)"
-        default: "1"
+        default: 1
         required: false
-        type: string
+        type: number
       rust_version:
         description: "rust toolchain version"
         default: "stable"
@@ -225,7 +225,7 @@ jobs:
   lint:
     uses: ./.github/workflows/lint.yml
   security_scan_source:
-    if: ${{ inputs.enable_security_scanning == 'true' }}
+    if: ${{ inputs.enable_security_scanning }}
     needs: lint
     uses: ./.github/workflows/security-scan-source.yml
     with:
@@ -265,7 +265,7 @@ jobs:
       cyclonedx_ignore_npm_errors: ${{ inputs.cyclonedx_ignore_npm_errors }}
 
   security_scan_artifacts:
-    if: ${{ inputs.enable_security_scanning == 'true' }}
+    if: ${{ inputs.enable_security_scanning }}
     needs: test_and_build
     uses: ./.github/workflows/security-scan-artifacts.yml
     with:
@@ -316,7 +316,7 @@ jobs:
       npm_namespace: ${{ inputs.npm_namespace }}
 
   publish_python_libraries:
-    if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.publish_python_libraries == 'true' }}
+    if: ${{ github.event_name == 'push' && inputs.tool == 'uv' && inputs.publish_python_libraries }}
     needs: [test_and_build, security_scan_artifacts, set_git_tag]
     uses: ./.github/workflows/publish-python-libraries.yml
     with:
@@ -350,7 +350,7 @@ jobs:
       ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
 
   release_github:
-    if: ${{ github.event_name == 'push' &&  inputs.artifact_path != '' && inputs.publish_github_release == 'true' }}
+    if: ${{ github.event_name == 'push' &&  inputs.artifact_path != '' && inputs.publish_github_release }}
     needs: [test_and_build, security_scan_artifacts, set_git_tag]
     uses: ./.github/workflows/release-github.yml
     with:
@@ -373,7 +373,7 @@ jobs:
       publish_flags: ${{ inputs.cargo_publish_flags }}
 
   post_publish_verification:
-    if: ${{ inputs.enable_security_scanning == 'true' && github.event_name == 'push' && inputs.docker_meta != '' }}
+    if: ${{ inputs.enable_security_scanning && github.event_name == 'push' && inputs.docker_meta != '' }}
     needs: publish_docker_image
     uses: ./.github/workflows/post-publish-verification.yml
     with:

@@ -19,9 +19,9 @@ on:
         type: string
       max_duration_minutes:
         description: "maximum scan duration in minutes for full scans (0 = unlimited)"
-        default: "60"
+        default: 60
         required: false
-        type: string
+        type: number
       fail_on_warn:
         description: "fail the workflow on warnings (true) or only on errors (false)"
         default: false
