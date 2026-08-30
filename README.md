@@ -115,6 +115,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
 | `addon_api_url_prefix` | `https://addons.mozilla.org/api/v5` | Extension signing API. Set to `https://addons.thunderbird.net/api/v4` for ATN |
 | `addon_channel` | `listed` | Extension target channel |
+| `addon_approval_timeout` | `0` | ms to wait for AMO approval + signed XPI. `0` returns after upload/validation. AMO only |
 | `xpi_path` | `""` | Path to the packaged `.xpi` — gates the Firefox job |
 | `app_root` | `""` | Android app root — gates the APK release job |
 | `publish_github_release` | `false` | Set to `true` to create a GitHub release |

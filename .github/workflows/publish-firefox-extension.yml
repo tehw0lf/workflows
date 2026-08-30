@@ -36,6 +36,16 @@ on:
         default: "listed"
         required: false
         type: string
+      approval_timeout:
+        description: >
+          milliseconds to wait for AMO to approve the submission and return a
+          signed XPI. 0 returns as soon as upload and validation succeed, which
+          is what a listed submission wants: screening outlives the run, so
+          waiting can only end in a download error. AMO API v5 only, ignored
+          by ATN
+        default: 0
+        required: false
+        type: number
 
 jobs:
   publish_firefox_extension:
@@ -69,6 +79,13 @@ jobs:
       # ATN has signing disabled: for thunderbird prefixes the action returns
       # successfully after upload instead of failing on the missing signed XPI.
       # The submission still lands in the ATN review queue.
+      #
+      # approval_timeout defaults to 0 because a listed AMO submission is
+      # screened by Mozilla long after the run ends. Waiting for a signed XPI
+      # therefore times out and web-ext throws ENOENT on the file it never
+      # downloaded, failing the job even though the upload succeeded. The
+      # action's ADDON_NOT_AUTO_SIGNED branch does not catch this: the throw
+      # comes from downloadSignedFile, upstream of that result handling.
       - name: publish firefox extension
         uses: kewisch/action-web-ext@84a13bb9e1b6108c43788ba091c41ca1dba6ad45 # v2
         with:
@@ -76,5 +93,6 @@ jobs:
           source: ${{ inputs.xpi_path }}
           channel: ${{ inputs.channel }}
           apiUrlPrefix: ${{ inputs.api_url_prefix }}
+          approvalTimeout: ${{ inputs.approval_timeout }}
           apiKey: ${{ secrets.ADDON_API_KEY }}
           apiSecret: ${{ secrets.ADDON_API_SECRET }}

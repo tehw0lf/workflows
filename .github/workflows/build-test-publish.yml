@@ -129,6 +129,14 @@ on:
         default: "listed"
         required: false
         type: string
+      addon_approval_timeout:
+        description: >
+          milliseconds to wait for AMO to approve the submission and return a
+          signed XPI. 0 returns as soon as upload and validation succeed, which
+          is what a listed submission wants. AMO API v5 only, ignored by ATN
+        default: 0
+        required: false
+        type: number
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -343,6 +351,7 @@ jobs:
       xpi_path: ${{ inputs.xpi_path }}
       api_url_prefix: ${{ inputs.addon_api_url_prefix }}
       channel: ${{ inputs.addon_channel }}
+      approval_timeout: ${{ inputs.addon_approval_timeout }}
     secrets:
       ADDON_API_KEY: ${{ secrets.ADDON_API_KEY }}
       ADDON_API_SECRET: ${{ secrets.ADDON_API_SECRET }}

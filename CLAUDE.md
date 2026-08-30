@@ -312,7 +312,7 @@ jobs:
 ### Workflow Input Patterns
 
 **The `workflow_call.inputs` block of `build-test-publish.yml` is the single source of
-truth** for the 43 available inputs — read it rather than trusting any list, here or in
+truth** for the 44 available inputs — read it rather than trusting any list, here or in
 the README. The README's "Optional Inputs (complete)" table mirrors it and must be
 updated in the same commit whenever an input is added, renamed or removed.
 
@@ -326,7 +326,7 @@ Key parameters:
 - `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
 - Platform-specific metadata (`docker_meta`, `xpi_path`, etc.)
 
-**Complete input list** (43; mirror of `workflow_call.inputs` — verify against the
+**Complete input list** (44; mirror of `workflow_call.inputs` — verify against the
 YAML before relying on it):
 
 | Group | Inputs |
@@ -338,7 +338,7 @@ YAML before relying on it):
 | npm | `libraries`, `library_path`, `npm_namespace`, `cyclonedx_ignore_npm_errors` |
 | Python | `publish_python_libraries` |
 | Rust | `rust_version`, `enable_clippy`, `enable_rustfmt`, `clippy_args`, `cargo_features`, `cargo_dry_run`, `cargo_package_name`, `cargo_publish_flags` |
-| Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel` |
+| Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel`, `addon_approval_timeout` |
 | Android | `app_root` |
 | Release | `publish_github_release`, `release_pre` |
 | Security | `enable_security_scanning`, `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
@@ -362,7 +362,8 @@ Booleans: `publish_github_release`, `publish_python_libraries`,
 `enable_security_scanning`, `npm_audit_omit_dev`, `enable_clippy`,
 `enable_rustfmt`, `cargo_dry_run`, `cyclonedx_ignore_npm_errors`, and
 `enable_sbom_attestation` / `enable_npm_audit_autofix` / `fail_on_warn` in the
-sub-workflows. Numbers: `trivy_exit_code`, `max_duration_minutes`.
+sub-workflows. Numbers: `trivy_exit_code`, `addon_approval_timeout`,
+`max_duration_minutes`.
 
 When changing an input's type, **update every caller repo first** — unquoted
 values are valid under both `string` and the stricter type, so callers can land
