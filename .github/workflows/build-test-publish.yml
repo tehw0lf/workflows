@@ -5,9 +5,9 @@ on:
     secrets:
       ANDROID_STOREPASS:
         required: false
-      AMO_API_KEY:
+      ADDON_API_KEY:
         required: false
-      AMO_API_SECRET:
+      ADDON_API_SECRET:
         required: false
     inputs:
       head_ref:
@@ -110,14 +110,23 @@ on:
         default: "linux/amd64,linux/arm64"
         required: false
         type: string
-      addon_guid:
-        description: "firefox addon guid"
-        default: ""
-        required: false
-        type: string
       xpi_path:
         description: "firefox addon zip path"
         default: ""
+        required: false
+        type: string
+      addon_api_url_prefix:
+        description: >
+          extension signing API endpoint. defaults to AMO
+          (addons.mozilla.org, API v5). set to
+          https://addons.thunderbird.net/api/v4 to publish a thunderbird
+          extension to ATN instead
+        default: "https://addons.mozilla.org/api/v5"
+        required: false
+        type: string
+      addon_channel:
+        description: "extension target channel, listed publishes to the public gallery"
+        default: "listed"
         required: false
         type: string
       runner:
@@ -326,16 +335,17 @@ jobs:
       tool: ${{ inputs.tool }}
 
   publish_firefox_extension:
-    if: ${{ github.event_name == 'push' && inputs.addon_guid != '' && inputs.xpi_path != '' }}
+    if: ${{ github.event_name == 'push' && inputs.xpi_path != '' }}
     needs: [test_and_build, security_scan_artifacts, set_git_tag]
     uses: ./.github/workflows/publish-firefox-extension.yml
     with:
       runner: ${{ inputs.runner }}
-      addon_guid: ${{ inputs.addon_guid }}
       xpi_path: ${{ inputs.xpi_path }}
+      api_url_prefix: ${{ inputs.addon_api_url_prefix }}
+      channel: ${{ inputs.addon_channel }}
     secrets:
-      AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
-      AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+      ADDON_API_KEY: ${{ secrets.ADDON_API_KEY }}
+      ADDON_API_SECRET: ${{ secrets.ADDON_API_SECRET }}
 
   release_android_apk:
     if: ${{ github.event_name == 'push' && inputs.app_root != '' }}

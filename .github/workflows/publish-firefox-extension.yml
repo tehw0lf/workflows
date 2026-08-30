@@ -3,9 +3,9 @@ name: publish firefox extension
 on:
   workflow_call:
     secrets:
-      AMO_API_KEY:
+      ADDON_API_KEY:
         required: false
-      AMO_API_SECRET:
+      ADDON_API_SECRET:
         required: false
     inputs:
       root_dir:
@@ -18,14 +18,22 @@ on:
         default: "ubuntu-latest"
         required: false
         type: string
-      addon_guid:
-        description: "firefox addon guid"
-        default: ""
-        required: false
-        type: string
       xpi_path:
         description: "firefox addon zip path"
         default: ""
+        required: false
+        type: string
+      api_url_prefix:
+        description: >
+          signing API endpoint. defaults to AMO (addons.mozilla.org, API v5).
+          set to https://addons.thunderbird.net/api/v4 to publish a
+          thunderbird extension to ATN instead
+        default: "https://addons.mozilla.org/api/v5"
+        required: false
+        type: string
+      channel:
+        description: "target channel, listed publishes to the public gallery"
+        default: "listed"
         required: false
         type: string
 
@@ -52,11 +60,21 @@ jobs:
         env:
           XPI_PATH: ${{ inputs.xpi_path }}
 
+      # kewisch/action-web-ext talks to both AMO and ATN, selected by
+      # api_url_prefix. AMO runs API v5, ATN runs addons-server API v4, and the
+      # action branches on the prefix. The extension id is read from
+      # browser_specific_settings.gecko.id in the packaged manifest, so every
+      # extension published through here must declare it there.
+      #
+      # ATN has signing disabled: for thunderbird prefixes the action returns
+      # successfully after upload instead of failing on the missing signed XPI.
+      # The submission still lands in the ATN review queue.
       - name: publish firefox extension
-        uses: wdzeng/firefox-addon@3184ee491b500e080885e046051366a4228c6e5d # v1.2.1
+        uses: kewisch/action-web-ext@84a13bb9e1b6108c43788ba091c41ca1dba6ad45 # v2
         with:
-          addon-guid: ${{ inputs.addon_guid }}
-          xpi-path: ${{ inputs.xpi_path }}
-          self-hosted: false
-          jwt-issuer: ${{ secrets.AMO_API_KEY }}
-          jwt-secret: ${{ secrets.AMO_API_SECRET }}
+          cmd: sign
+          source: ${{ inputs.xpi_path }}
+          channel: ${{ inputs.channel }}
+          apiUrlPrefix: ${{ inputs.api_url_prefix }}
+          apiKey: ${{ secrets.ADDON_API_KEY }}
+          apiSecret: ${{ secrets.ADDON_API_SECRET }}

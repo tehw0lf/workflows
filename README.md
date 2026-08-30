@@ -113,7 +113,8 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `cargo_dry_run` | `false` | Dry-run instead of publishing to crates.io |
 | `cargo_package_name` | `""` | Crate name (defaults to workspace name) |
 | `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
-| `addon_guid` | `""` | Firefox add-on GUID — gates the Firefox job |
+| `addon_api_url_prefix` | `https://addons.mozilla.org/api/v5` | Extension signing API. Set to `https://addons.thunderbird.net/api/v4` for ATN |
+| `addon_channel` | `listed` | Extension target channel |
 | `xpi_path` | `""` | Path to the packaged `.xpi` — gates the Firefox job |
 | `app_root` | `""` | Android app root — gates the APK release job |
 | `publish_github_release` | `false` | Set to `true` to create a GitHub release |
@@ -154,7 +155,7 @@ run that dies at startup.
 
 **Inputs that gate a job.** Several publishing jobs run only when a specific input is
 non-empty, in addition to requiring a `push` event: `docker_meta` (Docker),
-`library_path` (npm), `addon_guid` **and** `xpi_path` (Firefox), `app_root` (Android),
+`library_path` (npm), `xpi_path` (Firefox/Thunderbird), `app_root` (Android),
 `artifact_path` **and** `publish_github_release: true` (GitHub release),
 `tool: uv` **plus** `publish_python_libraries: true` (PyPI, which tags rather
 than uploads — see §5), and `tool: cargo` alone (crates.io). Setting `libraries`
@@ -444,8 +445,8 @@ GITHUB_TOKEN: # Auto-provided by GitHub
 # Requires: id-token: write permission (see above)
 
 # For Firefox extensions
-AMO_API_KEY: # Mozilla Add-ons API key
-AMO_API_SECRET: # Mozilla Add-ons API secret
+ADDON_API_KEY: # AMO or ATN API key, matching addon_api_url_prefix
+ADDON_API_SECRET: # AMO or ATN API secret, matching addon_api_url_prefix
 
 # For Android builds
 ANDROID_STOREPASS: # Android keystore password
