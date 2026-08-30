@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a collection of reusable GitHub Actions workflows designed to provide comprehensive CI/CD automation for multiple languages and platforms. The workflows support Node.js, Python, Java, Gradle, Maven, and Bash projects with automated testing, building, and publishing to various registries (Docker, npm, PyPI, Firefox Add-ons, Android APK releases).
+This is a collection of reusable GitHub Actions workflows designed to provide comprehensive CI/CD automation for multiple languages and platforms. The workflows support Node.js, Python, Java, Gradle, Maven, and Bash projects with automated testing, building, and publishing to various registries (Docker, npm, PyPI, Firefox and Thunderbird add-ons, Android APK releases).
 
 ## Architecture
 
@@ -54,7 +54,7 @@ Each specialized for different targets:
 - **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
 - **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**, **SBOM generation and attestation with Sigstore**
 - **Python**: artifact validation + version tag; the direct `uv publish` step is **parked** (PyPI Trusted Publishing does not work through a reusable workflow) — publish from a tag-triggered workflow in the calling repo
-- **Firefox**: XPI packaging and AMO publishing
+- **Firefox/Thunderbird**: XPI packaging, publishing to AMO or ATN via `addon_api_url_prefix`
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
 
@@ -312,7 +312,7 @@ jobs:
 ### Workflow Input Patterns
 
 **The `workflow_call.inputs` block of `build-test-publish.yml` is the single source of
-truth** for the 42 available inputs — read it rather than trusting any list, here or in
+truth** for the 43 available inputs — read it rather than trusting any list, here or in
 the README. The README's "Optional Inputs (complete)" table mirrors it and must be
 updated in the same commit whenever an input is added, renamed or removed.
 
@@ -324,9 +324,9 @@ Key parameters:
 - `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
 - `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
-- Platform-specific metadata (`docker_meta`, `addon_guid`, etc.)
+- Platform-specific metadata (`docker_meta`, `xpi_path`, etc.)
 
-**Complete input list** (42; mirror of `workflow_call.inputs` — verify against the
+**Complete input list** (43; mirror of `workflow_call.inputs` — verify against the
 YAML before relying on it):
 
 | Group | Inputs |
@@ -338,7 +338,7 @@ YAML before relying on it):
 | npm | `libraries`, `library_path`, `npm_namespace`, `cyclonedx_ignore_npm_errors` |
 | Python | `publish_python_libraries` |
 | Rust | `rust_version`, `enable_clippy`, `enable_rustfmt`, `clippy_args`, `cargo_features`, `cargo_dry_run`, `cargo_package_name`, `cargo_publish_flags` |
-| Firefox | `addon_guid`, `xpi_path` |
+| Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel` |
 | Android | `app_root` |
 | Release | `publish_github_release`, `release_pre` |
 | Security | `enable_security_scanning`, `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
@@ -377,7 +377,7 @@ not run":
 | Docker | `docker_meta` |
 | npm | `library_path` (**not** `libraries`) |
 | PyPI (tag only, upload parked) | `tool: uv` **and** `publish_python_libraries: true` |
-| Firefox | `addon_guid` **and** `xpi_path` |
+| Firefox / Thunderbird | `xpi_path` |
 | Android | `app_root` |
 | GitHub release | `artifact_path` **and** `publish_github_release: true` |
 | crates.io | `tool: cargo` |
