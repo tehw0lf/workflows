@@ -54,7 +54,7 @@ Each specialized for different targets:
 - **Docker**: Multi-platform builds (amd64/arm64), registry flexibility, fail-fast: false for matrix builds
 - **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**, **SBOM generation and attestation with Sigstore**
 - **Python**: artifact validation + version tag; the direct `uv publish` step is **parked** (PyPI Trusted Publishing does not work through a reusable workflow) — publish from a tag-triggered workflow in the calling repo
-- **Firefox/Thunderbird**: XPI packaging, publishing to AMO or ATN via `addon_api_url_prefix`
+- **Firefox/Thunderbird**: XPI packaging, publishing to AMO or ATN via `addon_api_url_prefix`; `addon_approval_timeout` defaults to `0` because AMO never auto-signs listed add-ons, so there is no signed XPI to wait for
 - **Android**: APK building with keystore management
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
 
@@ -338,7 +338,7 @@ YAML before relying on it):
 | npm | `libraries`, `library_path`, `npm_namespace`, `cyclonedx_ignore_npm_errors` |
 | Python | `publish_python_libraries` |
 | Rust | `rust_version`, `enable_clippy`, `enable_rustfmt`, `clippy_args`, `cargo_features`, `cargo_dry_run`, `cargo_package_name`, `cargo_publish_flags` |
-| Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel` |
+| Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel`, `addon_approval_timeout` |
 | Android | `app_root` |
 | Release | `publish_github_release`, `release_pre` |
 | Security | `enable_security_scanning`, `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
