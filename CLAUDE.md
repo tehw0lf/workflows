@@ -312,7 +312,7 @@ jobs:
 ### Workflow Input Patterns
 
 **The `workflow_call.inputs` block of `build-test-publish.yml` is the single source of
-truth** for the 43 available inputs — read it rather than trusting any list, here or in
+truth** for the 44 available inputs — read it rather than trusting any list, here or in
 the README. The README's "Optional Inputs (complete)" table mirrors it and must be
 updated in the same commit whenever an input is added, renamed or removed.
 
@@ -326,7 +326,7 @@ Key parameters:
 - `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
 - Platform-specific metadata (`docker_meta`, `xpi_path`, etc.)
 
-**Complete input list** (43; mirror of `workflow_call.inputs` — verify against the
+**Complete input list** (44; mirror of `workflow_call.inputs` — verify against the
 YAML before relying on it):
 
 | Group | Inputs |

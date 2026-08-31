@@ -61,7 +61,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Optional Inputs (complete):**
 
-All 42 inputs are optional. Grouped by purpose; defaults are the workflow's own.
+All 44 inputs are optional. Grouped by purpose; defaults are the workflow's own.
 
 _Project & build_
 

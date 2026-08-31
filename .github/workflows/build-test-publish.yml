@@ -136,6 +136,8 @@ on:
           pass, which is what listed add-ons need since they go to manual review
           and are never auto-signed. set a millisecond value to wait for
           approval and download the signed XPI, which only unlisted add-ons get.
+          keep it well under the publish job's 15 minute limit minus the
+          action's own 900000 ms validation timeout, which is spent first.
           AMO (API v5) only, ignored by ATN
         default: "0"
         required: false

@@ -43,6 +43,9 @@ on:
           pass, which is what listed add-ons need since they go to manual review
           and are never auto-signed. set a millisecond value to wait for
           approval and download the signed XPI, which only unlisted add-ons get.
+          the action waits for validation and approval separately, so keep this
+          well under the job's 15 minute limit minus the action's own 900000 ms
+          validation timeout, or the runner cancels the job mid-wait.
           AMO (API v5) only, ignored by ATN
         default: "0"
         required: false
@@ -52,6 +55,9 @@ jobs:
   publish_firefox_extension:
     name: publish firefox extension
     runs-on: ${{ inputs.runner }}
+    # caps the whole job. The action waits up to its own 900000 ms validation
+    # timeout and then up to approval_timeout on top, so a large
+    # approval_timeout is cancelled by this limit rather than honoured.
     timeout-minutes: 15
     permissions:
       actions: read
