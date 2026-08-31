@@ -129,6 +129,19 @@ on:
         default: "listed"
         required: false
         type: string
+      addon_approval_timeout:
+        description: >
+          milliseconds to wait for AMO to approve the submission and return the
+          signed XPI. defaults to 0: the job succeeds once upload and validation
+          pass, which is what listed add-ons need since they go to manual review
+          and are never auto-signed. set a millisecond value to wait for
+          approval and download the signed XPI, which only unlisted add-ons get.
+          keep it well under the publish job's 15 minute limit minus the
+          action's own 900000 ms validation timeout, which is spent first.
+          AMO (API v5) only, ignored by ATN
+        default: "0"
+        required: false
+        type: string
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -343,6 +356,7 @@ jobs:
       xpi_path: ${{ inputs.xpi_path }}
       api_url_prefix: ${{ inputs.addon_api_url_prefix }}
       channel: ${{ inputs.addon_channel }}
+      approval_timeout: ${{ inputs.addon_approval_timeout }}
     secrets:
       ADDON_API_KEY: ${{ secrets.ADDON_API_KEY }}
       ADDON_API_SECRET: ${{ secrets.ADDON_API_SECRET }}

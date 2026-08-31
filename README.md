@@ -61,7 +61,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Optional Inputs (complete):**
 
-All 42 inputs are optional. Grouped by purpose; defaults are the workflow's own.
+All 44 inputs are optional. Grouped by purpose; defaults are the workflow's own.
 
 _Project & build_
 
@@ -115,6 +115,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
 | `addon_api_url_prefix` | `https://addons.mozilla.org/api/v5` | Extension signing API. Set to `https://addons.thunderbird.net/api/v4` for ATN |
 | `addon_channel` | `listed` | Extension target channel |
+| `addon_approval_timeout` | `0` | Milliseconds to wait for AMO approval and the signed XPI. `0` succeeds once upload and validation pass — what listed add-ons need, since AMO never auto-signs them. Set a value only for unlisted add-ons. AMO only, ignored by ATN |
 | `xpi_path` | `""` | Path to the packaged `.xpi` — gates the Firefox job |
 | `app_root` | `""` | Android app root — gates the APK release job |
 | `publish_github_release` | `false` | Set to `true` to create a GitHub release |
