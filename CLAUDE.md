@@ -43,7 +43,7 @@ The main orchestrator that:
 
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
-- Sets up language-specific environments (Node.js v24.19.0, Python via pyproject.toml, Java 21)
+- Sets up language-specific environments (Node.js v24.20.0, Python via pyproject.toml, Java 21)
 - Implements comprehensive caching for dependencies across all tools (tool-specific cache keys)
 - Supports Nx monorepos with SHA optimization
 - Handles Playwright E2E testing automatically (supports .ts, .js, and .mjs config variants)
@@ -410,7 +410,7 @@ Publishing only occurs on:
 
 ### Multi-language Support
 The workflows dynamically adapt based on `tool` parameter:
-- **npm/yarn**: Node.js v24.19.0, package-lock.json/yarn.lock caching
+- **npm/yarn**: Node.js v24.20.0, package-lock.json/yarn.lock caching
 - **uv**: Python setup from pyproject.toml, uv.lock caching
 - **./gradlew**: JDK 21 Temurin, Gradle caching
 - **mvn**: JDK 21 Temurin, Maven repository caching
@@ -455,6 +455,9 @@ Renovate's custom managers track:
   on the active LTS line rather than jumping to an odd/current release.
 - **npm CLI** — the `npm install -g npm@<major>` pin; minor/patch updates are
   disabled since the pin only expresses a major.
+- **Java** — the `java-version:` pins in `setup-java` steps. The two pins differ
+  on purpose (21 in `test-and-build.yml`, 24 in `release-android-apk.yml`), so
+  major updates are disabled; changing a major is a deliberate, tested change.
 
 **When adding a new pinned tool version to a workflow, add a matching custom
 manager** — otherwise the pin is invisible to both bots and will go stale.
