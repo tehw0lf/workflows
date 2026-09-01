@@ -78,6 +78,18 @@
       ],
       "depNameTemplate": "npm",
       "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "Java runtime version pinned in setup-java steps",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "java-version: \"(?<currentValue>\\d+)\""
+      ],
+      "depNameTemplate": "java",
+      "datasourceTemplate": "java-version"
     }
   ],
   "packageRules": [
@@ -119,6 +131,16 @@
         "bandit"
       ],
       "groupName": "python security tools"
+    },
+    {
+      "description": "Java pins are chosen per job (21 generic, 24 android); majors are a deliberate, tested change",
+      "matchDepNames": [
+        "java"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
     }
   ]
 }
