@@ -28,6 +28,16 @@ on:
         default: "auto"
         required: false
         type: string
+      codeql_category:
+        description:
+          "SARIF category for the CodeQL analysis. Defaults to
+          '/language:<language>'. Set this to an older workflow's category
+          (e.g. '.github/workflows/codeql-analysis.yml:analyze') to adopt and
+          close alerts it left behind - code scanning only ever closes an alert
+          that a later run of the same tool AND category stops reporting."
+        default: ""
+        required: false
+        type: string
       codeql_languages:
         description:
           "JSON array of CodeQL languages to analyse, e.g.
@@ -329,4 +339,4 @@ jobs:
       - name: perform codeql analysis
         uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
-          category: "/language:${{ matrix.language }}"
+          category: ${{ inputs.codeql_category != '' && inputs.codeql_category || format('/language:{0}', matrix.language) }}
