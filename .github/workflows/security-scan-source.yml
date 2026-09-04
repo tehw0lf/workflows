@@ -28,6 +28,16 @@ on:
         default: "auto"
         required: false
         type: string
+      codeql_languages:
+        description:
+          "JSON array of CodeQL languages to analyse, e.g.
+          '[\"javascript-typescript\"]' or '[\"python\",\"go\"]'. Empty
+          disables CodeQL. JSON rather than a comma-separated string because
+          GitHub Actions expressions have no replace()/split() to build a
+          matrix from one."
+        default: ""
+        required: false
+        type: string
       npm_audit_omit_dev:
         description:
           "omit dev dependencies from npm audit (use when dev-only vulns have
@@ -277,3 +287,46 @@ jobs:
       node_version: "24.20.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
+
+  # Optional CodeQL analysis. Off unless the caller sets `codeql_languages`,
+  # so existing callers are unaffected.
+  #
+  # Worth enabling where semgrep's pattern matching is not enough: CodeQL does
+  # interprocedural dataflow, so it finds issues that only show up once a value
+  # crosses function boundaries.
+  #
+  # Note that code scanning only ever closes an alert that a *later run of the
+  # same tool and category* no longer reports. A repo that once ran CodeQL and
+  # then dropped it keeps those alerts open forever, with nothing left to close
+  # them - so removing this later means dismissing any alerts it raised.
+  codeql_analysis:
+    name: codeql analysis
+    if: ${{ inputs.codeql_languages != '' }}
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(inputs.codeql_languages) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: initialize codeql
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: autobuild
+        uses: github/codeql-action/autobuild@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+
+      - name: perform codeql analysis
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          category: "/language:${{ matrix.language }}"
