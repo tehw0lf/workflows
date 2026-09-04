@@ -160,6 +160,24 @@ jobs:
             exit 0
           fi
 
+      # Strip nosemgrep-suppressed findings before upload. semgrep emits them as
+      # results carrying a `suppressions` entry; code scanning ingests those as
+      # regular open alerts and has no way to ever close them, so a finding that
+      # was deliberately triaged with a nosemgrep comment would otherwise sit in
+      # the Security tab forever.
+      - name: filter suppressed findings from semgrep SARIF
+        if: always()
+        run: |
+          if [ ! -s semgrep.sarif ] || ! jq empty semgrep.sarif 2>/dev/null; then
+            echo "no valid SARIF to filter, skipping"
+            exit 0
+          fi
+          jq '(.runs[]? | select(has("results")).results) |=
+                map(select(.suppressions == null or .suppressions == []))' \
+            semgrep.sarif > semgrep.filtered.sarif
+          mv semgrep.filtered.sarif semgrep.sarif
+          echo "Findings uploaded: $(jq '[.runs[]?.results[]?] | length' semgrep.sarif)"
+
       - name: upload semgrep SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
