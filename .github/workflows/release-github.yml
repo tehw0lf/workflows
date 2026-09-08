@@ -63,6 +63,8 @@ jobs:
       - name: extract version from manifest
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: extract_version
+        env:
+          TOOL: ${{ inputs.tool }}
         run: |
           if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
             VERSION=$(jq -r .version package.json)
@@ -96,7 +98,7 @@ jobs:
           fi
 
           if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
-            echo "::error::[Release] Could not determine version for tool '${{ inputs.tool }}' (got: '${VERSION}')"
+            echo "::error::[Release] Could not determine version for tool '${TOOL}' (got: '${VERSION}')"
             echo "::error::[Release] Supported tools: npm, yarn, uv, cargo"
             echo "::error::[Release] Supported manifests: pyproject.toml, package.json, Cargo.toml, VERSION"
             exit 1

@@ -40,6 +40,8 @@ jobs:
 
       - name: extract version from manifest
         id: extract_version
+        env:
+          TOOL: ${{ inputs.tool }}
         run: |
           if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
             VERSION=$(jq -r .version package.json)
@@ -73,7 +75,7 @@ jobs:
           fi
 
           if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
-            echo "::notice::[Tag] No version found for tool '${{ inputs.tool }}' (no manifest version and no VERSION file), skipping tag"
+            echo "::notice::[Tag] No version found for tool '${TOOL}' (no manifest version and no VERSION file), skipping tag"
             exit 0
           fi
           echo "release_tag=v${VERSION#v}" >> $GITHUB_OUTPUT
