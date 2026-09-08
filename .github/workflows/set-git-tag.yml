@@ -62,6 +62,10 @@ jobs:
             VERSION=$(jq -r .version package.json)
           elif [[ -f Cargo.toml ]]; then
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          elif [[ -f VERSION ]]; then
+            # Ecosystems without a version field in their manifest (Go, Bash, C,
+            # docker-only repos) keep the version in a plain VERSION file.
+            VERSION=$(tr -d '[:space:]' < VERSION)
           else
             echo "::notice::[Tag] No supported manifest found for tool '${{ inputs.tool }}', skipping tag"
             exit 0
@@ -71,8 +75,8 @@ jobs:
             echo "::warning::[Tag] Could not extract version from manifest (got: '${VERSION}'), skipping tag"
             exit 0
           fi
-          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "::notice::[Tag] Extracted version: v${VERSION}"
+          echo "release_tag=v${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "::notice::[Tag] Extracted version: v${VERSION#v}"
 
       - name: set git tag if not yet set
         if: ${{ steps.extract_version.outputs.release_tag != '' }}
