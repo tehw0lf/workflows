@@ -63,6 +63,8 @@ jobs:
       - name: extract version from manifest
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}
         id: extract_version
+        env:
+          TOOL: ${{ inputs.tool }}
         run: |
           if [[ "${{ inputs.tool }}" == "npm" || "${{ inputs.tool }}" == "yarn" ]]; then
             VERSION=$(jq -r .version package.json)
@@ -85,19 +87,24 @@ jobs:
             VERSION=$(jq -r .version package.json)
           elif [[ -f Cargo.toml ]]; then
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-          else
-            echo "::error::[Release] Unsupported tool '${{ inputs.tool }}' and no recognised manifest found"
-            echo "::error::[Release] Supported tools: npm, yarn, uv, cargo"
-            echo "::error::[Release] Supported manifests: pyproject.toml, package.json, Cargo.toml"
-            exit 1
+          fi
+
+          # Ecosystems without a version field in their manifest (Go, Bash, C,
+          # docker-only repos) keep the version in a plain VERSION file. Also
+          # covers a manifest that exists but carries no version, e.g. a
+          # pyproject.toml used only for tool configuration.
+          if [[ ( -z "${VERSION}" || "${VERSION}" == "null" ) && -f VERSION ]]; then
+            VERSION=$(tr -d '[:space:]' < VERSION)
           fi
 
           if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
-            echo "::error::[Release] Could not extract version from manifest (got: '${VERSION}')"
+            echo "::error::[Release] Could not determine version for tool '${TOOL}' (got: '${VERSION}')"
+            echo "::error::[Release] Supported tools: npm, yarn, uv, cargo"
+            echo "::error::[Release] Supported manifests: pyproject.toml, package.json, Cargo.toml, VERSION"
             exit 1
           fi
-          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "::notice::[Release] Extracted version: v${VERSION}"
+          echo "release_tag=v${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "::notice::[Release] Extracted version: v${VERSION#v}"
 
       - name: check if release already exists
         if: ${{ steps.check_artifact_exists.outputs.exists == 'true' }}

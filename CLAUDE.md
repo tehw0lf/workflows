@@ -389,7 +389,17 @@ Releases use automatic version extraction from the project manifest — no `rele
 - **npm/yarn**: reads `version` from `package.json` via `jq`
 - **uv**: reads `version` from `pyproject.toml` (falls back to `version.json` in artifact path)
 - **cargo**: reads `version` from `Cargo.toml` via `grep`
-- **other tools**: not supported for GitHub releases (fails with clear error)
+- **other tools**: falls back to whichever manifest is present (`pyproject.toml`, `package.json`, `Cargo.toml`)
+- **no manifest version**: reads a plain `VERSION` file in the repo root
+
+The `VERSION` file covers ecosystems whose manifest has no version field — Go
+(`go.mod`'s `go 1.27.0` is the *language* version and must not be used as a
+release version), plus Bash, C and docker-only repos. It is the same convention
+prometheus and consul use. The fallback also applies when a manifest exists but
+carries no version, e.g. a `pyproject.toml` used only for tool configuration.
+
+A leading `v` is stripped before tagging, so both `0.1.0` and `v0.1.0` in a
+`VERSION` file produce the tag `v0.1.0`.
 
 The pipeline tags `vX.Y.Z` and creates the release. If the tag already exists, the workflow fails — bump the version in the manifest to create a new release.
 

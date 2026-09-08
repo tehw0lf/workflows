@@ -109,6 +109,14 @@ jobs:
             VERSION="${{ github.ref_name }}"
           fi
 
+          # Ecosystems without a version field in their manifest (Go, Bash, C,
+          # docker-only repos) keep the version in a plain VERSION file. Also
+          # covers a manifest that exists but carries no version, e.g. a
+          # pyproject.toml used only for tool configuration.
+          if [[ ( -z "${VERSION}" || "${VERSION}" == "null" ) && -f VERSION ]]; then
+            VERSION=$(tr -d '[:space:]' < VERSION)
+          fi
+
           if [[ -n "${VERSION}" && "${VERSION}" != "null" ]]; then
             echo "DOCKER_VERSION_TAG=v${VERSION#v}" >> $GITHUB_ENV
             echo "::notice::[Docker] Version tag: v${VERSION#v}"
