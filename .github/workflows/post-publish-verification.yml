@@ -100,6 +100,8 @@ jobs:
           IFS=',' read -ra PLATFORM_ARRAY <<< "${{ inputs.platforms }}"
           exit_code=0
 
+          mkdir -p trivy-sarif
+
           for image in "${IMAGE_ARRAY[@]}"; do
             echo "🔍 Scanning $image..."
 
@@ -112,7 +114,7 @@ jobs:
             # Run Trivy scan directly from registry (no docker pull needed)
             trivy image \
               --format sarif \
-              --output "trivy-image-${sanitized_name}.sarif" \
+              --output "trivy-sarif/trivy-image-${sanitized_name}.sarif" \
               --severity "${{ inputs.trivy_severity }}" \
               --exit-code "${{ inputs.trivy_exit_code }}" \
               --platform "$platform" \
@@ -136,7 +138,7 @@ jobs:
         if: always() && steps.trivy-image.outcome != 'skipped'
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
-          sarif_file: trivy-image-*.sarif
+          sarif_file: trivy-sarif
           category: trivy-published-images
         continue-on-error: true
 
@@ -146,5 +148,5 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: post-publish-verification-reports
-          path: trivy-image-*.sarif
+          path: trivy-sarif/trivy-image-*.sarif
           if-no-files-found: ignore

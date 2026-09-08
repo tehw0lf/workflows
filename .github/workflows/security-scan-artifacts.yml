@@ -167,6 +167,7 @@ jobs:
       - name: build and scan docker images
         if: ${{ inputs.docker_meta != '' }}
         run: |
+          mkdir -p trivy-sarif
           echo '${{ inputs.docker_meta }}' | jq -c '.[]' | while read -r image; do
             name=$(echo "$image" | jq -r '.name')
             file=$(echo "$image" | jq -r '.file')
@@ -183,7 +184,7 @@ jobs:
             echo "::notice::[Docker Scan] Scanning $name"
             trivy image \
               --format sarif \
-              --output "trivy-image-${sanitized_name}.sarif" \
+              --output "trivy-sarif/trivy-image-${sanitized_name}.sarif" \
               --severity "${{ inputs.trivy_severity }}" \
               --exit-code ${{ inputs.trivy_exit_code }} \
               "$name:scan"
@@ -202,7 +203,7 @@ jobs:
         if: always() && steps.docker-scan.outcome != 'skipped'
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
-          sarif_file: trivy-image-*.sarif
+          sarif_file: trivy-sarif
           category: trivy-docker-pre-publish
         continue-on-error: true
 
@@ -211,5 +212,5 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: docker-scan-reports
-          path: trivy-image-*.sarif
+          path: trivy-sarif/trivy-image-*.sarif
           if-no-files-found: ignore
