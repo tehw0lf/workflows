@@ -105,12 +105,16 @@ jobs:
             VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
           elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-          elif [[ -f VERSION ]]; then
-            # Ecosystems without a version field in their manifest (Go, Bash, C,
-            # docker-only repos) keep the version in a plain VERSION file.
-            VERSION=$(tr -d '[:space:]' < VERSION)
           elif [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9] ]]; then
             VERSION="${{ github.ref_name }}"
+          fi
+
+          # Ecosystems without a version field in their manifest (Go, Bash, C,
+          # docker-only repos) keep the version in a plain VERSION file. Also
+          # covers a manifest that exists but carries no version, e.g. a
+          # pyproject.toml used only for tool configuration.
+          if [[ ( -z "${VERSION}" || "${VERSION}" == "null" ) && -f VERSION ]]; then
+            VERSION=$(tr -d '[:space:]' < VERSION)
           fi
 
           if [[ -n "${VERSION}" && "${VERSION}" != "null" ]]; then
