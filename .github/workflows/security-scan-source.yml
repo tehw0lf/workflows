@@ -29,8 +29,7 @@ on:
         required: false
         type: string
       codeql_category:
-        description:
-          "SARIF category for the CodeQL analysis. Defaults to
+        description: "SARIF category for the CodeQL analysis. Defaults to
           '/language:<language>'. Set this to an older workflow's category
           (e.g. '.github/workflows/codeql-analysis.yml:analyze') to adopt and
           close alerts it left behind - code scanning only ever closes an alert
@@ -39,12 +38,11 @@ on:
         required: false
         type: string
       codeql_languages:
-        description:
-          "JSON array of CodeQL languages to analyse, e.g.
-          '[\"javascript-typescript\"]' or '[\"python\",\"go\"]'. Empty
+        description: 'JSON array of CodeQL languages to analyse, e.g.
+          ''["javascript-typescript"]'' or ''["python","go"]''. Empty
           disables CodeQL. JSON rather than a comma-separated string because
           GitHub Actions expressions have no replace()/split() to build a
-          matrix from one."
+          matrix from one.'
         default: ""
         required: false
         type: string
@@ -231,7 +229,7 @@ jobs:
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "24.20.0"
+          node-version: "24.21.0"
           cache: "${{ inputs.tool }}"
           cache-dependency-path: |
             ${{ inputs.root_dir }}/package-lock.json
@@ -276,7 +274,7 @@ jobs:
       mode: "branch"
       head_ref: ${{ inputs.head_ref }}
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.20.0"
+      node_version: "24.21.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
 
@@ -294,7 +292,7 @@ jobs:
       mode: "scheduled"
       base_branch: ${{ inputs.audit_fix_base_branch }}
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.20.0"
+      node_version: "24.21.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
 
