@@ -69,7 +69,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build
-          path: ${{ inputs.artifact_path }}
+          path: ${{ inputs.root_dir != '' && format('{0}/{1}', inputs.root_dir, inputs.artifact_path) || inputs.artifact_path }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
@@ -130,12 +130,25 @@ jobs:
       - name: publish single npm library
         if: ${{ inputs.libraries == '' && steps.check_artifact_exists.outputs.exists == 'true' }}
         run: |
-          path_to_package_json=$(find . -name "package.json" | head -n 1)
+          # The step already runs in root_dir via defaults.run.working-directory,
+          # so the manifest is always ./package.json. Do not search for it:
+          # `find . -name package.json` returns results in unspecified order and
+          # would pick a dependency manifest whenever node_modules is present,
+          # silently comparing the wrong versions and skipping the publish.
+          path_to_package_json="package.json"
 
-          latest_version=$(npm view "$(jq -r ".name" "$path_to_package_json")" dist-tags.latest 2>/dev/null || echo "0.0.0")
+          if [[ ! -f "$path_to_package_json" ]]; then
+            echo "::error::[NPM] No package.json found in '${ROOT_DIR}'"
+            echo "FAILURE_REASON=missing_package_json" >> $GITHUB_ENV
+            exit 4
+          fi
+
+          package_name=$(jq -r ".name" "$path_to_package_json")
           package_version=$(jq -r ".version" "$path_to_package_json")
+          latest_version=$(npm view "$package_name" dist-tags.latest 2>/dev/null || echo "0.0.0")
 
           if [[ "$latest_version" != "$package_version" ]]; then
+            echo "::notice::[NPM] Publishing ${package_name}: ${latest_version} -> ${package_version}"
             if [[ "${LIBRARY_PATH}" == "dist" ]]; then
               npm publish --access public --provenance --dry-run
               npm publish --access public --provenance
@@ -143,7 +156,10 @@ jobs:
               npm publish "${LIBRARY_PATH}"/ --access public --provenance --dry-run
               npm publish "${LIBRARY_PATH}"/ --access public --provenance
             fi
+          else
+            echo "::notice::[NPM] Skipping ${package_name}: version ${package_version} already published"
           fi
         env:
           NPM_NAMESPACE: ${{ inputs.npm_namespace }}
           LIBRARY_PATH: ${{ inputs.library_path }}
+          ROOT_DIR: ${{ inputs.root_dir }}
