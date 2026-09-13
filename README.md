@@ -284,10 +284,26 @@ Builds and releases Android APK files.
 Creates GitHub releases with artifacts.
 
 **Features:**
-- ✅ Automatic version detection (Python projects)
+- ✅ Automatic version detection
 - ✅ Configurable release tags
 - ✅ Artifact attachment
 - ✅ Timeout protection (10 minutes)
+
+The tag comes from whichever version source the repo has, checked in this order
+(the same logic drives `set-git-tag.yml`):
+
+| Source | Used when |
+|---|---|
+| `package.json` | `tool: npm` / `yarn`, or the file is present |
+| `pyproject.toml` | `tool: uv`, or the file is present |
+| `Cargo.toml` | `tool: cargo`, or the file is present |
+| `<artifact_path>/version.json` | `tool: uv` with no `pyproject.toml` |
+| `*.toc` | World of Warcraft addons — the `## Version:` field |
+| `VERSION` | Anything else (Go, Bash, C, docker-only repos) |
+
+Multi-client addons ship one `.toc` per game version. The files are read in
+sorted order and the first one wins; if another declares a different version the
+run warns rather than silently picking one, since that is a repo bug.
 
 ### 10. Workflow Summary (`summarize-workflow.yml`)
 
