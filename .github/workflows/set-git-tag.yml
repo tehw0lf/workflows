@@ -71,13 +71,20 @@ jobs:
           # insensitively because the field is conventionally "## Version:" but
           # the client accepts any case.
           #
+          # Searched recursively, because multi-client addons keep one .toc per
+          # game version in its own subdirectory (WoWQuote2 has TBC/, Vanilla/
+          # and WOTLK/) and a root-only search finds nothing there. Build and
+          # dependency directories are pruned so a stale packaged .toc cannot win.
+          #
           # Sorted rather than taking whichever file the filesystem yields first:
-          # multi-client addons ship several .toc files (one per game version) and
-          # an unsorted pick would tag a different version run to run. If they
-          # disagree that is a bug in the repo, so it is reported rather than
-          # silently resolved.
+          # an unsorted pick would tag a different version run to run. Sorting
+          # also makes a root-level .toc win over one nested deeper, since "." <
+          # "/" in ASCII. If two disagree that is a bug in the repo, so it is
+          # reported rather than silently resolved.
           if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
-            mapfile -t TOCS < <(find . -maxdepth 1 -name '*.toc' | sort)
+            mapfile -t TOCS < <(find . \
+                \( -name .git -o -name node_modules -o -name dist -o -name Release -o -name .lua \) -prune -o \
+                -name '*.toc' -print 2>/dev/null | sort)
             if [[ ${#TOCS[@]} -gt 0 ]]; then
               VERSION=$(grep -ihm1 '^## *Version:' "${TOCS[0]}" | cut -d: -f2 | tr -d '[:space:]')
               for T in "${TOCS[@]:1}"; do
