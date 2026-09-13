@@ -217,6 +217,16 @@ on:
         default: "-- -D warnings"
         required: false
         type: string
+      enable_lua:
+        description: "install a lua interpreter, for projects whose scripts need one"
+        default: false
+        required: false
+        type: boolean
+      lua_version:
+        description: "lua version to install when enable_lua is set (e.g. '5.1.5', 'luajit-2.1')"
+        default: "5.4.8"
+        required: false
+        type: string
       cargo_features:
         description: "cargo features to enable (e.g., 'async,network')"
         default: ""
@@ -284,6 +294,8 @@ jobs:
       enable_rustfmt: ${{ inputs.enable_rustfmt }}
       clippy_args: ${{ inputs.clippy_args }}
       cargo_features: ${{ inputs.cargo_features }}
+      enable_lua: ${{ inputs.enable_lua }}
+      lua_version: ${{ inputs.lua_version }}
       cyclonedx_ignore_npm_errors: ${{ inputs.cyclonedx_ignore_npm_errors }}
 
   security_scan_artifacts:

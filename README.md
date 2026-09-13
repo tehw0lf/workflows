@@ -113,6 +113,8 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `cargo_dry_run` | `false` | Dry-run instead of publishing to crates.io |
 | `cargo_package_name` | `""` | Crate name (defaults to workspace name) |
 | `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
+| `enable_lua` | `false` | Install a Lua interpreter. Pair with `tool: bash` — Lua is a toolchain to provision, not a dispatcher for script inputs |
+| `lua_version` | `5.4.8` | Lua version to install, e.g. `5.1.5` or `luajit-2.1`. Only used when `enable_lua` is set |
 | `addon_api_url_prefix` | `https://addons.mozilla.org/api/v5` | Extension signing API. Set to `https://addons.thunderbird.net/api/v4` for ATN |
 | `addon_channel` | `listed` | Extension target channel |
 | `addon_approval_timeout` | `0` | Milliseconds to wait for AMO approval and the signed XPI. `0` succeeds once upload and validation pass — what listed add-ons need, since AMO never auto-signs them. Set a value only for unlisted add-ons. AMO only, ignored by ATN |
@@ -148,7 +150,8 @@ trivy_exit_code: "1"              # startup_failure
 
 Booleans here are `publish_github_release`, `publish_python_libraries`,
 `enable_security_scanning`, `npm_audit_omit_dev`, `enable_clippy`,
-`enable_rustfmt`, `cargo_dry_run` and `cyclonedx_ignore_npm_errors`; numbers are
+`enable_rustfmt`, `enable_lua`, `cargo_dry_run` and
+`cyclonedx_ignore_npm_errors`; numbers are
 `trivy_exit_code` and (in `security-scan-dast.yml`) `max_duration_minutes`.
 Note that `actionlint` does **not** catch this class of error — it accepts
 mismatched types, unknown input names and all — so the first sign of trouble is a
@@ -252,6 +255,9 @@ with:
   enable_clippy: true                # Run clippy linting
   clippy_args: "-- -D warnings"      # Clippy arguments
   cargo_features: "async,network"    # Optional features
+
+  enable_lua: true                   # Provision a Lua interpreter
+  lua_version: "5.1.5"               # Exact version; pair with tool: bash
 ```
 
 ### 7. Firefox Extension (`publish-firefox-extension.yml`)
@@ -788,6 +794,39 @@ with:
   build_main: "build.sh"
   artifact_path: "dist"
 ```
+
+### Lua Project
+
+Lua is provisioned as a toolchain and paired with `tool: bash`, because the
+`tool` input is prefixed onto every script command and a Lua suite is driven from
+a runner script rather than `lua <script> <args>`.
+
+The interpreter is built from source by `leafo/gh-actions-lua` and cached per
+version, so pin the exact version your target runtime uses — for example a World
+of Warcraft 3.3.5a addon runs Lua 5.1, so testing against 5.4 would accept syntax
+the game rejects.
+
+```yaml
+uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+permissions:
+  id-token: write       # REQUIRED - Always needed
+  contents: write       # Required for GitHub releases
+  security-events: write # Required for security scanning (SARIF uploads)
+with:
+  tool: bash
+  enable_lua: true
+  lua_version: "5.1.5"
+  test: "./test/run.sh"
+  build_main: "./build.sh"
+  artifact_path: "dist"
+  publish_github_release: true
+```
+
+The action installs into `.lua/bin` and puts it on `PATH`, so scripts call `lua`
+directly. It does **not** create version-suffixed names such as `lua5.1`, so a
+runner script that hardcodes those will pass locally against a distro package and
+then fail in CI. Have the script probe for both names, and do not assume `luac`
+is present — the action documents `lua` on `PATH` but says nothing about `luac`.
 
 ## 🔄 Workflow Dependencies
 
