@@ -113,7 +113,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `cargo_dry_run` | `false` | Dry-run instead of publishing to crates.io |
 | `cargo_package_name` | `""` | Crate name (defaults to workspace name) |
 | `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
-| `enable_lua` | `false` | Install a Lua interpreter. Pair with `tool: bash` — Lua is a toolchain to provision, not a dispatcher for script inputs |
+| `enable_lua` | `false` | Install a Lua interpreter. Independent of `tool` — provisions the interpreter without dispatching script inputs through it, so it can also add Lua to a `cargo` or `npm` build |
 | `lua_version` | `5.4.8` | Lua version to install, e.g. `5.1.5` or `luajit-2.1`. Only used when `enable_lua` is set |
 | `addon_api_url_prefix` | `https://addons.mozilla.org/api/v5` | Extension signing API. Set to `https://addons.thunderbird.net/api/v4` for ATN |
 | `addon_channel` | `listed` | Extension target channel |
@@ -256,8 +256,8 @@ with:
   clippy_args: "-- -D warnings"      # Clippy arguments
   cargo_features: "async,network"    # Optional features
 
-  enable_lua: true                   # Provision a Lua interpreter
-  lua_version: "5.1.5"               # Exact version; pair with tool: bash
+  enable_lua: true                   # Provision a Lua interpreter (independent of `tool`)
+  lua_version: "5.1.5"               # Exact version to build
 ```
 
 ### 7. Firefox Extension (`publish-firefox-extension.yml`)
@@ -813,9 +813,12 @@ with:
 
 ### Lua Project
 
-Lua is provisioned as a toolchain and paired with `tool: bash`, because the
-`tool` input is prefixed onto every script command and a Lua suite is driven from
-a runner script rather than `lua <script> <args>`.
+`enable_lua` only provisions the interpreter; it does not affect how scripts are
+dispatched. That is `tool`'s job, and `tool` is prefixed onto every script
+command. A pure Lua project therefore uses `tool: bash`, because its suite is
+driven from a runner script rather than `lua <script> <args>` — but any other
+`tool` works too when a build merely needs Lua available (a `cargo` build script,
+for instance).
 
 The interpreter is built from source by `leafo/gh-actions-lua` and cached per
 version, so pin the exact version your target runtime uses — for example a World
