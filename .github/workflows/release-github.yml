@@ -89,14 +89,6 @@ jobs:
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           fi
 
-          # Ecosystems without a version field in their manifest (Go, Bash, C,
-          # docker-only repos) keep the version in a plain VERSION file. Also
-          # covers a manifest that exists but carries no version, e.g. a
-          # pyproject.toml used only for tool configuration.
-          if [[ ( -z "${VERSION}" || "${VERSION}" == "null" ) && -f VERSION ]]; then
-            VERSION=$(tr -d '[:space:]' < VERSION)
-          fi
-
           # World of Warcraft addons carry the version in their .toc manifest,
           # which is the only place the game reads it from. Matched case
           # insensitively because the field is conventionally "## Version:" but
@@ -118,6 +110,15 @@ jobs:
                 fi
               done
             fi
+          fi
+
+          # Last resort: ecosystems with no manifest at all (Go, Bash, C,
+          # docker-only repos) keep the version in a plain VERSION file. Also
+          # covers a manifest that exists but carries no version, e.g. a
+          # pyproject.toml used only for tool configuration. Checked after the
+          # .toc so a repo carrying both releases the version the game reads.
+          if [[ ( -z "${VERSION}" || "${VERSION}" == "null" ) && -f VERSION ]]; then
+            VERSION=$(tr -d '[:space:]' < VERSION)
           fi
 
           if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then

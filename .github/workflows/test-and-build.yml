@@ -203,14 +203,21 @@ jobs:
       # `lua <script> <args>`. So this is a separate flag, and callers pair it
       # with `tool: bash` the same way a Java project pairs a JDK with `mvn`.
       #
-      # gh-actions-lua compiles Lua from source, so the build is cached. The key
-      # includes the version so switching versions does not reuse a stale build.
+      # gh-actions-lua compiles Lua from source, so the build is cached.
+      #
+      # The key carries the architecture as well as the OS, because unlike the
+      # other caches here this one holds a compiled binary rather than downloaded
+      # packages. runner.os is "Linux" for both x64 and arm64 runners, so an
+      # OS-only key could restore an arm64 build onto x64; the action then sees an
+      # existing .lua directory, skips compiling, and every later step fails on an
+      # unrunnable interpreter. The version is in the key so switching versions
+      # does not reuse a stale build.
       - name: cache lua build
         if: ${{ inputs.enable_lua }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ inputs.root_dir }}/.lua
-          key: lua-${{ runner.os }}-${{ inputs.lua_version }}
+          key: lua-${{ runner.os }}-${{ runner.arch }}-${{ inputs.lua_version }}
 
       - name: install lua toolchain
         if: ${{ inputs.enable_lua }}
