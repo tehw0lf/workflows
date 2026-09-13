@@ -93,6 +93,16 @@ on:
         default: ""
         required: false
         type: string
+      enable_lua:
+        description: "install a lua interpreter, for projects whose scripts need one"
+        default: false
+        required: false
+        type: boolean
+      lua_version:
+        description: "lua version to install when enable_lua is set (e.g. '5.1.5', 'luajit-2.1')"
+        default: "5.4.8"
+        required: false
+        type: string
       enable_sbom_attestation:
         description: "enable SBOM generation and attestation"
         required: false
@@ -186,6 +196,43 @@ jobs:
           key: deps-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             deps-cargo-${{ runner.os }}-
+
+      # Lua is an interpreter to provision, not a build tool to dispatch scripts
+      # through, so it is a flag rather than a `tool` value: the `tool` input is
+      # prefixed onto every lint/test/build command, and a Lua suite is driven
+      # from a runner script rather than `lua <script> <args>`. Keeping the two
+      # separate also lets a cargo or npm build provision Lua for its own use,
+      # the same way setup-java is independent of mvn.
+      #
+      # gh-actions-lua compiles Lua from source, so the build is cached.
+      #
+      # The key carries the architecture as well as the OS, because unlike the
+      # other caches here this one holds a compiled binary rather than downloaded
+      # packages. runner.os is "Linux" for both x64 and arm64 runners, so an
+      # OS-only key could restore an arm64 build onto x64; the action then sees an
+      # existing .lua directory, skips compiling, and every later step fails on an
+      # unrunnable interpreter. The version is in the key so switching versions
+      # does not reuse a stale build.
+      - name: cache lua build
+        if: ${{ inputs.enable_lua }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ inputs.root_dir }}/.lua
+          key: lua-${{ runner.os }}-${{ runner.arch }}-${{ inputs.lua_version }}
+
+      # gh-actions-lua builds with cl/link on Windows and does not initialise the
+      # MSVC environment itself, so this has to run first when `runner` selects a
+      # Windows image. The action is a no-op on other platforms, so it is gated
+      # only on enable_lua rather than on the runner name.
+      - name: configure msvc for lua build
+        if: ${{ inputs.enable_lua }}
+        uses: step-security/msvc-dev-cmd@22c98154b708dbd743e6f27a933cf6ceba3305c4 # v1
+
+      - name: install lua toolchain
+        if: ${{ inputs.enable_lua }}
+        uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13
+        with:
+          luaVersion: ${{ inputs.lua_version }}
 
       - name: enable nx shas
         if: ${{ success() && hashFiles('./nx.json') != '' }}

@@ -89,10 +89,34 @@ jobs:
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           fi
 
-          # Ecosystems without a version field in their manifest (Go, Bash, C,
+          # World of Warcraft addons carry the version in their .toc manifest,
+          # which is the only place the game reads it from. Matched case
+          # insensitively because the field is conventionally "## Version:" but
+          # the client accepts any case.
+          #
+          # Sorted rather than taking whichever file the filesystem yields first:
+          # multi-client addons ship several .toc files (one per game version) and
+          # an unsorted pick would tag a different version run to run. If they
+          # disagree that is a bug in the repo, so it is reported rather than
+          # silently resolved.
+          if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+            mapfile -t TOCS < <(find . -maxdepth 1 -name '*.toc' | sort)
+            if [[ ${#TOCS[@]} -gt 0 ]]; then
+              VERSION=$(grep -ihm1 '^## *Version:' "${TOCS[0]}" | cut -d: -f2 | tr -d '[:space:]')
+              for T in "${TOCS[@]:1}"; do
+                OTHER=$(grep -ihm1 '^## *Version:' "${T}" | cut -d: -f2 | tr -d '[:space:]')
+                if [[ -n "${OTHER}" && "${OTHER}" != "${VERSION}" ]]; then
+                  echo "::warning::[Version] ${T} declares ${OTHER} but ${TOCS[0]} declares ${VERSION}; using ${VERSION}"
+                fi
+              done
+            fi
+          fi
+
+          # Last resort: ecosystems with no manifest at all (Go, Bash, C,
           # docker-only repos) keep the version in a plain VERSION file. Also
           # covers a manifest that exists but carries no version, e.g. a
-          # pyproject.toml used only for tool configuration.
+          # pyproject.toml used only for tool configuration. Checked after the
+          # .toc so a repo carrying both releases the version the game reads.
           if [[ ( -z "${VERSION}" || "${VERSION}" == "null" ) && -f VERSION ]]; then
             VERSION=$(tr -d '[:space:]' < VERSION)
           fi
@@ -100,7 +124,7 @@ jobs:
           if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
             echo "::error::[Release] Could not determine version for tool '${TOOL}' (got: '${VERSION}')"
             echo "::error::[Release] Supported tools: npm, yarn, uv, cargo"
-            echo "::error::[Release] Supported manifests: pyproject.toml, package.json, Cargo.toml, VERSION"
+            echo "::error::[Release] Supported manifests: pyproject.toml, package.json, Cargo.toml, *.toc, VERSION"
             exit 1
           fi
           echo "release_tag=v${VERSION#v}" >> $GITHUB_OUTPUT
