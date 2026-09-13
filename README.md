@@ -302,11 +302,11 @@ The tag comes from whichever version source the repo has, checked in this order
 | `VERSION` | Anything else (Go, Bash, C, docker-only repos) |
 
 Multi-client addons ship one `.toc` per game version, typically one per
-subdirectory (`TBC/`, `Vanilla/`, `WOTLK/`), so the search is recursive with
-build and dependency directories pruned. Files are read in sorted order and the
-first one wins — which makes a root-level `.toc` win over a nested one. If another
-declares a different version the run warns rather than silently picking one, since
-that is a repo bug.
+subdirectory (`TBC/`, `Vanilla/`, `WOTLK/`), so the search is recursive with build
+and dependency directories pruned. Candidates are ordered by directory depth first
+and then by path, so a `.toc` at the repo root always wins over a nested one and
+ties within a depth resolve deterministically. If another declares a different
+version the run warns rather than silently picking one, since that is a repo bug.
 
 One release, many assets: `artifact_path` attaches everything in the directory to
 the single release, so a repo producing three client-specific ZIPs needs one
