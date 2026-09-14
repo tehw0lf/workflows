@@ -155,10 +155,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-trivy-
 
+      # Download the release tarball directly from get.trivy.dev instead of
+      # piping contrib/install.sh. That script resolves the tag first via an
+      # unauthenticated github.com/<repo>/releases/<tag> call, which is rate
+      # limited per Actions IP and fails as "unable to find 'vX.Y.Z'" on a
+      # cache miss. get.trivy.dev takes the version directly, so no tag
+      # lookup is needed; the checksum file is still verified.
       - name: install trivy
         if: ${{ inputs.docker_meta != '' && steps.cache-trivy.outputs.cache-hit != 'true' }}
+        env:
+          TRIVY_VERSION: "0.74.0"
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.74.0
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+
+          curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors \
+            -o "$tmp/trivy.tar.gz" \
+            "https://get.trivy.dev/trivy?os=linux&arch=64bit&version=v${TRIVY_VERSION}&type=tar.gz"
+
+          curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors \
+            -o "$tmp/checksums.txt" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_checksums.txt"
+
+          expected="$(grep "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" "$tmp/checksums.txt" | awk '{print $1}' || true)"
+          if [ -z "$expected" ]; then
+            echo "::error::no checksum entry for trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+            exit 1
+          fi
+
+          echo "${expected}  $tmp/trivy.tar.gz" | sha256sum -c -
+
+          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp" trivy
+          sudo install -m 0755 "$tmp/trivy" /usr/local/bin/trivy
+          rm -rf "$tmp"
+
+          trivy --version
 
       - name: set up docker
         if: ${{ inputs.docker_meta != '' }}
@@ -188,6 +219,19 @@ jobs:
               --severity "${{ inputs.trivy_severity }}" \
               --exit-code ${{ inputs.trivy_exit_code }} \
               "$name:scan"
+
+            # upload-sarif rejects several runs that share a category, and
+            # every Trivy run reports the same tool name with no
+            # automationDetails.id. Stamp a per-image id so the runs stay
+            # distinguishable in a single upload; a preset id takes precedence
+            # over the action's category input and is never overwritten.
+            sarif_file="trivy-sarif/trivy-image-${sanitized_name}.sarif"
+            if [ -f "$sarif_file" ]; then
+              jq --arg id "trivy-docker-pre-publish/${sanitized_name}/" \
+                '.runs[].automationDetails = {"id": $id}' \
+                "$sarif_file" > "${sarif_file}.tmp" \
+                && mv "${sarif_file}.tmp" "$sarif_file"
+            fi
 
             echo "### 🔍 Trivy Docker Scan Results: $name" >> $GITHUB_STEP_SUMMARY
             trivy image \
