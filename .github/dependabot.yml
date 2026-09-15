@@ -11,3 +11,15 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    # The codeql-action subactions (init, autobuild, analyze, upload-sarif) share
+    # state through a config file that `init` writes and stamps with its own
+    # version. `analyze` refuses to read a config written by a different version
+    # ("Loaded a configuration file for version X, but running version Y"), so a
+    # workflow with mixed pins can never pass. Dependabot opens one PR per
+    # `uses:` path by default, which is how #152-#154 moved init, autobuild and
+    # upload-sarif to 4.38.0 while analyze was left behind on 4.37.9. Grouping
+    # them keeps all four pins moving as one.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
