@@ -43,6 +43,16 @@ on:
         description: "Result of crates.io publishing"
         required: true
         type: string
+      publish_maven_central_result:
+        description: "Result of Maven Central publishing"
+        required: false
+        default: "skipped"
+        type: string
+      publish_maven_central_outcome:
+        description: "What the Maven Central job did: published, already-published or dry-run"
+        required: false
+        default: ""
+        type: string
       post_publish_verification_result:
         description: "Result of post-publish verification"
         required: true
@@ -63,6 +73,9 @@ jobs:
     steps:
       - name: Generate workflow summary
         id: summary
+        env:
+          MAVEN_CENTRAL_RESULT: ${{ inputs.publish_maven_central_result }}
+          MAVEN_CENTRAL_OUTCOME: ${{ inputs.publish_maven_central_outcome }}
         run: |
           # Function to get status emoji and text
           get_status() {
@@ -126,6 +139,21 @@ jobs:
 
           result=$(add_job_row "Crates.io" "${{ inputs.publish_crates_io_result }}" "Published" "crates.io")
           [[ -n "$result" ]] && artifacts+=("$result")
+
+          # A successful job is not necessarily a publication: a dry run or an
+          # already published version succeeds too, and must not be reported
+          # as a new artifact.
+          case "$MAVEN_CENTRAL_OUTCOME" in
+            published)
+              result=$(add_job_row "Maven Central" "$MAVEN_CENTRAL_RESULT" "Published" "maven-central")
+              [[ -n "$result" ]] && artifacts+=("$result") ;;
+            already-published)
+              add_job_row "Maven Central" "$MAVEN_CENTRAL_RESULT" "Already published" >/dev/null ;;
+            dry-run)
+              add_job_row "Maven Central" "$MAVEN_CENTRAL_RESULT" "Dry run" >/dev/null ;;
+            *)
+              add_job_row "Maven Central" "$MAVEN_CENTRAL_RESULT" "Published" >/dev/null ;;
+          esac
 
           # Post-publish verification (no artifact tracking)
           add_job_row "🔒 Post-Publish Verification" "${{ inputs.post_publish_verification_result }}" "Verified"

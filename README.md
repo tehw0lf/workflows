@@ -53,7 +53,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 - ✅ Multi-language support (Node.js, Python, Rust, Java, Gradle, Bash)
 - ✅ **Triple-layer security scanning** (pre-build source + post-build artifacts + post-publish verification)
 - ✅ Automated testing and building
-- ✅ Multi-platform publishing (Docker, npm, PyPI, crates.io, Firefox, Android)
+- ✅ Multi-platform publishing (Docker, npm, PyPI, crates.io, Maven Central, Firefox, Android)
 - ✅ Conditional deployment based on branch and inputs
 
 **Required Inputs:**
@@ -112,6 +112,8 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | `clippy_args` | `-- -D warnings` | Extra Clippy arguments |
 | `cargo_features` | `""` | Features to enable, e.g. `async,network` |
 | `cargo_dry_run` | `false` | Dry-run instead of publishing to crates.io |
+| `publish_maven_central` | `false` | Publish to Maven Central (`tool: ./gradlew`, see §7) |
+| `maven_central_dry_run` | `false` | Sign and publish to Maven Local only |
 | `cargo_package_name` | `""` | Crate name (defaults to workspace name) |
 | `cargo_publish_flags` | `""` | Extra flags for `cargo publish` |
 | `enable_lua` | `false` | Install a Lua interpreter. Independent of `tool` — provisions the interpreter without dispatching script inputs through it, so it can also add Lua to a `cargo` or `npm` build |
@@ -163,7 +165,8 @@ non-empty, in addition to requiring a `push` event: `docker_meta` (Docker),
 `library_path` (npm), `xpi_path` (Firefox/Thunderbird), `app_root` (Android),
 `artifact_path` **and** `publish_github_release: true` (GitHub release),
 `tool: uv` **plus** `publish_python_libraries: true` (PyPI, which tags rather
-than uploads — see §5), and `tool: cargo` alone (crates.io). Setting `libraries`
+than uploads — see §5), `tool: cargo` alone (crates.io), and
+`publish_maven_central: true` (Maven Central). Setting `libraries`
 without `library_path` silently publishes nothing.
 
 ### 2. Test and Build (`test-and-build.yml`)
@@ -261,7 +264,53 @@ with:
   lua_version: "5.1.5"               # Exact version to build
 ```
 
-### 7. Firefox Extension (`publish-firefox-extension.yml`)
+
+### 7. Maven Central (`publish-maven-central.yml`)
+
+Publishes a Gradle project to Maven Central through the Central Portal.
+
+- ✅ Signing and upload by the project's `com.vanniktech.maven.publish`
+  plugin; credentials only ever as `ORG_GRADLE_PROJECT_*` environment variables
+- ✅ Coordinates read from the generated POM, so the dedup check asks about
+  exactly what would be uploaded
+- ✅ Version deduplication via the Portal's `/api/v1/publisher/published`
+- ✅ Snapshot versions rejected (the Portal publishes releases only)
+- ✅ Dry run: sign and publish to Maven Local, no upload
+- ✅ Missing secrets fail early with exit code 2, unsupported `tool` with 3
+- ⚠️ Gradle only; `mvn` is rejected until a repository needs it
+
+`set_git_tag` reads the version from `gradle.properties` for `tool: ./gradlew`.
+
+**Setup, once per namespace:** verify the namespace on central.sonatype.com,
+create a user token, and create a GPG key whose public half is on a keyserver
+(`gpg --keyserver keys.openpgp.org --send-keys <id>`).
+
+**Configuration:**
+```yaml
+    with:
+      tool: ./gradlew
+      java_version: "25"
+      publish_maven_central: true
+    secrets:
+      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}  # user token name
+      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}  # user token password
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}                # gpg --export-secret-keys --armor <id>
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+```
+
+The project's `build.gradle.kts` needs the plugin and a complete POM:
+```kotlin
+plugins { id("com.vanniktech.maven.publish") version "0.37.0" }
+
+mavenPublishing {
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
+    pom { name = "..."; description = "..."; url = "..."; licenses { ... }; developers { ... }; scm { ... } }
+}
+```
+Resolve the plugin from Maven Central (`pluginManagement { repositories { mavenCentral() } }`):
+the Plugin Portal's marker stops at 0.13.0.
+### 8. Firefox Extension (`publish-firefox-extension.yml`)
 
 Publishes Firefox browser extensions to Mozilla Add-ons.
 
@@ -270,7 +319,7 @@ Publishes Firefox browser extensions to Mozilla Add-ons.
 - ✅ AMO (addons.mozilla.org) publishing
 - ✅ Timeout protection (15 minutes)
 
-### 8. Android APK (`release-android-apk.yml`)
+### 9. Android APK (`release-android-apk.yml`)
 
 Builds and releases Android APK files.
 
@@ -280,7 +329,7 @@ Builds and releases Android APK files.
 - ✅ GitHub releases integration
 - ✅ Timeout protection (30 minutes)
 
-### 9. GitHub Releases (`release-github.yml`)
+### 10. GitHub Releases (`release-github.yml`)
 
 Creates GitHub releases with artifacts.
 
@@ -313,7 +362,7 @@ One release, many assets: `artifact_path` attaches everything in the directory t
 the single release, so a repo producing three client-specific ZIPs needs one
 workflow, not three.
 
-### 10. Workflow Summary (`summarize-workflow.yml`)
+### 11. Workflow Summary (`summarize-workflow.yml`)
 
 Aggregates and reports results from all publishing workflows.
 
@@ -324,7 +373,7 @@ Aggregates and reports results from all publishing workflows.
 - ✅ Refactored from 90 lines to 30 lines (67% reduction) using helper functions
 - ✅ Quick timeout (5 minutes)
 
-### 11. Security Scan Source (`security-scan-source.yml`)
+### 12. Security Scan Source (`security-scan-source.yml`)
 
 **Pre-build security layer** that scans source code and dependencies before building.
 
@@ -349,7 +398,7 @@ with:
 - ✅ Industry-standard tools used by major projects
 - ✅ Active maintenance and community support
 
-### 12. Security Scan Artifacts (`security-scan-artifacts.yml`)
+### 13. Security Scan Artifacts (`security-scan-artifacts.yml`)
 
 **Pre-publish security layer** that scans build artifacts before publishing.
 
@@ -361,7 +410,7 @@ with:
 - ✅ **Security gate**: Blocks publishing of vulnerable artifacts
 - ✅ Timeout protection (20 minutes)
 
-### 13. Post-Publish Verification (`post-publish-verification.yml`)
+### 14. Post-Publish Verification (`post-publish-verification.yml`)
 
 **Post-publish security layer** that verifies published Docker images.
 
@@ -387,7 +436,7 @@ with:
 4. **Publish**: Docker images, npm packages, PyPI packages, etc.
 5. **Post-publish** (post-publish-verification.yml): Verify published Docker images → Detect supply chain attacks ✅
 
-### 14. npm Audit Auto-Fix (`npm-audit-autofix.yml`)
+### 15. npm Audit Auto-Fix (`npm-audit-autofix.yml`)
 
 **Automatic remediation** for npm audit failures on Dependabot PRs. Called automatically by `security-scan-source.yml` when `npm audit` fails on a Dependabot PR.
 
@@ -870,6 +919,7 @@ graph TD
     A --> G[release-android-apk.yml]
     A --> H[release-github.yml]
     A --> K[publish-crates-io.yml]
+    A --> P[publish-maven-central.yml]
     A --> O[post-publish-verification.yml]
     A --> J[summarize-workflow.yml]
 

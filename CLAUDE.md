@@ -26,6 +26,7 @@ build-test-publish.yml (orchestrator)
 ├── publish-docker-image.yml (conditional)
 ├── publish-npm-libraries.yml (conditional)
 ├── publish-python-libraries.yml (conditional)
+├── publish-maven-central.yml (conditional)
 ├── publish-firefox-extension.yml (conditional)
 ├── release-android-apk.yml (conditional)
 ├── release-github.yml (conditional)
@@ -242,7 +243,8 @@ build-test-publish.yml execution flow:
       ├─ publish_firefox_extension
       ├─ release_android_apk
       ├─ release_github
-      └─ publish_crates_io
+      ├─ publish_crates_io
+      └─ publish_maven_central
   6. post_publish_verification (post-publish security) ← MUST PASS
       └─ Trivy (scans published Docker images from registry)
   7. summarize (needs: all jobs)
@@ -381,6 +383,7 @@ not run":
 | Android | `app_root` |
 | GitHub release | `artifact_path` **and** `publish_github_release: true` |
 | crates.io | `tool: cargo` |
+| Maven Central | `publish_maven_central: true` (tool must be `./gradlew`; secrets checked at runtime) |
 
 Setting `libraries` without `library_path` publishes nothing at all.
 
@@ -389,6 +392,7 @@ Releases use automatic version extraction from the project manifest — no `rele
 - **npm/yarn**: reads `version` from `package.json` via `jq`
 - **uv**: reads `version` from `pyproject.toml` (falls back to `version.json` in artifact path)
 - **cargo**: reads `version` from `Cargo.toml` via `grep`
+- **./gradlew**: reads `version=` from `gradle.properties` (no JDK in the tag job; a computed version falls through to `VERSION`)
 - **other tools**: falls back to whichever manifest is present (`pyproject.toml`, `package.json`, `Cargo.toml`)
 - **no manifest version**: reads a plain `VERSION` file in the repo root
 
