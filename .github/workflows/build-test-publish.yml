@@ -492,4 +492,5 @@ jobs:
       release_github_result: ${{ needs.release_github.result }}
       publish_crates_io_result: ${{ needs.publish_crates_io.result }}
       publish_maven_central_result: ${{ needs.publish_maven_central.result }}
+      publish_maven_central_outcome: ${{ needs.publish_maven_central.outputs.outcome }}
       post_publish_verification_result: ${{ needs.post_publish_verification.result }}

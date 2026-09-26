@@ -43,6 +43,10 @@ on:
         default: false
         required: false
         type: boolean
+    outputs:
+      outcome:
+        description: "published, already-published or dry-run -- a successful job alone does not say which"
+        value: ${{ jobs.publish_maven_central.outputs.outcome }}
     secrets:
       MAVEN_CENTRAL_USERNAME:
         description: "Central Portal user token name"
@@ -61,9 +65,13 @@ jobs:
   publish_maven_central:
     name: publish to Maven Central
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 30
+    # The plugin waits for the Portal to publish, up to its own 60-minute
+    # limit (SONATYPE_CLOSE_TIMEOUT_SECONDS); the job must outlast that.
+    timeout-minutes: 75
     permissions:
       contents: read
+    outputs:
+      outcome: ${{ steps.dry_run.outputs.outcome || steps.version_check.outputs.outcome || steps.publish.outputs.outcome }}
     defaults:
       run:
         working-directory: ${{ inputs.root_dir }}
@@ -134,6 +142,16 @@ jobs:
             echo "::error::[Maven Central] incomplete coordinates in $pom: '$group:$artifact:$version'"
             exit 3
           fi
+          # set_git_tag names the release after gradle.properties. If
+          # coordinates() sets another version, the tag and the upload would
+          # disagree, so that is refused rather than tagged wrongly.
+          if [[ -f gradle.properties ]]; then
+            declared=$(grep -m1 '^version[[:space:]]*=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+            if [[ -n "$declared" && "$declared" != "$version" ]]; then
+              echo "::error::[Maven Central] the POM says $version but gradle.properties says $declared; the release tag would not match the upload"
+              exit 3
+            fi
+          fi
           if [[ "$version" == *-SNAPSHOT ]]; then
             echo "::error::[Maven Central] $version is a snapshot; the Central Portal publishes releases only"
             exit 3
@@ -168,8 +186,9 @@ jobs:
           published=$(jq -r '.published' <<< "$response")
           case "$published" in
             true)
-              echo "::notice::[Maven Central] $GROUP:$ARTIFACT:$VERSION already published, skipping"
-              echo "already_published=true" >> "$GITHUB_OUTPUT" ;;
+              echo "::notice::[Maven Central] $GROUP:$ARTIFACT:$VERSION already published, skipping the upload"
+              echo "already_published=true" >> "$GITHUB_OUTPUT"
+              echo "outcome=already-published" >> "$GITHUB_OUTPUT" ;;
             false)
               echo "already_published=false" >> "$GITHUB_OUTPUT" ;;
             *)
@@ -177,8 +196,12 @@ jobs:
               exit 1 ;;
           esac
 
+      # Local only, so it runs whether or not the version is on Central: a
+      # dry run is how a signing or POM change is checked for an existing
+      # release too.
       - name: sign and publish to Maven Local (dry run)
-        if: ${{ inputs.dry_run && steps.version_check.outputs.already_published == 'false' }}
+        id: dry_run
+        if: ${{ inputs.dry_run }}
         env:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
@@ -187,17 +210,23 @@ jobs:
         run: |
           ./gradlew publishToMavenLocal
           echo "::notice::[Maven Central] dry run: signed bundle built, nothing uploaded"
+          echo "outcome=dry-run" >> "$GITHUB_OUTPUT"
           find ~/.m2/repository -path "*/$ARTIFACT/$VERSION/*" -type f | sort
 
       - name: publish
+        id: publish
         if: ${{ !inputs.dry_run && steps.version_check.outputs.already_published == 'false' }}
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+          # The plugin's default returns once the Portal has *validated* the
+          # bundle, which is not yet a publication; wait until it is one.
+          ORG_GRADLE_PROJECT_mavenCentralDeploymentValidation: PUBLISHED
           PUBLISH_TASK: ${{ inputs.publish_task }}
           COORDINATES: ${{ steps.coordinates.outputs.group }}:${{ steps.coordinates.outputs.artifact }}:${{ steps.coordinates.outputs.version }}
         run: |
           ./gradlew "$PUBLISH_TASK" --no-configuration-cache
           echo "::notice::[Maven Central] published $COORDINATES"
+          echo "outcome=published" >> "$GITHUB_OUTPUT"
