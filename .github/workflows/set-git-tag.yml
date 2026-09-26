@@ -56,6 +56,12 @@ jobs:
             fi
           elif [[ "${{ inputs.tool }}" == "cargo" ]]; then
             VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          elif [[ "${{ inputs.tool }}" == "./gradlew" && -f gradle.properties ]]; then
+            # Gradle projects conventionally keep the version in
+            # gradle.properties. Read as text: this job has no JDK, and a
+            # version computed in a build script falls through to the
+            # VERSION-file fallback below.
+            VERSION=$(grep -m1 '^version[[:space:]]*=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
           elif [[ -f pyproject.toml ]]; then
             # Tool does not identify the ecosystem (e.g. "bash"), so fall back to
             # whichever manifest is present.

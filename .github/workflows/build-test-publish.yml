@@ -5,6 +5,14 @@ on:
     secrets:
       ANDROID_STOREPASS:
         required: false
+      MAVEN_CENTRAL_USERNAME:
+        required: false
+      MAVEN_CENTRAL_PASSWORD:
+        required: false
+      GPG_PRIVATE_KEY:
+        required: false
+      GPG_PASSPHRASE:
+        required: false
       ADDON_API_KEY:
         required: false
       ADDON_API_SECRET:
@@ -252,6 +260,16 @@ on:
         default: ""
         required: false
         type: string
+      publish_maven_central:
+        description: "publish to Maven Central (tool: ./gradlew with com.vanniktech.maven.publish; needs the MAVEN_CENTRAL_* and GPG_* secrets)"
+        default: false
+        required: false
+        type: boolean
+      maven_central_dry_run:
+        description: "sign and publish to Maven Local only, without uploading to Maven Central"
+        default: false
+        required: false
+        type: boolean
       cyclonedx_ignore_npm_errors:
         description: "Use --ignore-npm-errors flag for SBOM generation (avoids npm ls validation issues with overrides)"
         required: false
@@ -414,6 +432,22 @@ jobs:
       dry_run: ${{ inputs.cargo_dry_run }}
       publish_flags: ${{ inputs.cargo_publish_flags }}
 
+  publish_maven_central:
+    if: ${{ github.event_name == 'push' && inputs.publish_maven_central }}
+    needs: [test_and_build, security_scan_artifacts, set_git_tag]
+    uses: ./.github/workflows/publish-maven-central.yml
+    with:
+      runner: ${{ inputs.runner }}
+      root_dir: ${{ inputs.root_dir }}
+      tool: ${{ inputs.tool }}
+      java_version: ${{ inputs.java_version }}
+      dry_run: ${{ inputs.maven_central_dry_run }}
+    secrets:
+      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
   post_publish_verification:
     if: ${{ inputs.enable_security_scanning && github.event_name == 'push' && inputs.docker_meta != '' }}
     needs: publish_docker_image
@@ -442,6 +476,7 @@ jobs:
         release_android_apk,
         release_github,
         publish_crates_io,
+        publish_maven_central,
         post_publish_verification,
       ]
     uses: ./.github/workflows/summarize-workflow.yml
@@ -456,4 +491,5 @@ jobs:
       release_android_apk_result: ${{ needs.release_android_apk.result }}
       release_github_result: ${{ needs.release_github.result }}
       publish_crates_io_result: ${{ needs.publish_crates_io.result }}
+      publish_maven_central_result: ${{ needs.publish_maven_central.result }}
       post_publish_verification_result: ${{ needs.post_publish_verification.result }}

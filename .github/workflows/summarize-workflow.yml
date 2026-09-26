@@ -43,6 +43,11 @@ on:
         description: "Result of crates.io publishing"
         required: true
         type: string
+      publish_maven_central_result:
+        description: "Result of Maven Central publishing"
+        required: false
+        default: "skipped"
+        type: string
       post_publish_verification_result:
         description: "Result of post-publish verification"
         required: true
@@ -125,6 +130,9 @@ jobs:
           [[ -n "$result" ]] && artifacts+=("$result")
 
           result=$(add_job_row "Crates.io" "${{ inputs.publish_crates_io_result }}" "Published" "crates.io")
+          [[ -n "$result" ]] && artifacts+=("$result")
+
+          result=$(add_job_row "Maven Central" "${{ inputs.publish_maven_central_result }}" "Published" "maven-central")
           [[ -n "$result" ]] && artifacts+=("$result")
 
           # Post-publish verification (no artifact tracking)

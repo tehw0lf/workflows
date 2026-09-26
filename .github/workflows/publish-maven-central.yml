@@ -1,0 +1,203 @@
+name: publish maven central
+
+# Publishes a Gradle project to Maven Central through the Central Portal.
+#
+# The project applies com.vanniktech.maven.publish, which signs, bundles and
+# uploads; this workflow provides the JDK, the credentials and the guard
+# against republishing. The plugin reads everything below from
+# ORG_GRADLE_PROJECT_* variables, so nothing is written to disk.
+#
+# Maven (mvn) is not supported yet: it needs settings.xml and a GPG agent
+# rather than environment variables, and no repository uses it here.
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "workflow-runner"
+        default: "ubuntu-latest"
+        required: false
+        type: string
+      root_dir:
+        description: "path to project root"
+        default: "."
+        required: false
+        type: string
+      tool:
+        description: "build tool; only ./gradlew is supported"
+        default: "./gradlew"
+        required: false
+        type: string
+      java_version:
+        description: "Java version to use"
+        default: "21"
+        required: false
+        type: string
+      publish_task:
+        description: "Gradle task that uploads; the default releases automatically once Central validates the bundle"
+        default: "publishAndReleaseToMavenCentral"
+        required: false
+        type: string
+      dry_run:
+        description: "sign and publish to Maven Local only, to prove the bundle builds, without uploading"
+        default: false
+        required: false
+        type: boolean
+    secrets:
+      MAVEN_CENTRAL_USERNAME:
+        description: "Central Portal user token name"
+        required: false
+      MAVEN_CENTRAL_PASSWORD:
+        description: "Central Portal user token password"
+        required: false
+      GPG_PRIVATE_KEY:
+        description: "ASCII-armored private key (gpg --export-secret-keys --armor <id>)"
+        required: false
+      GPG_PASSPHRASE:
+        description: "passphrase of GPG_PRIVATE_KEY"
+        required: false
+
+jobs:
+  publish_maven_central:
+    name: publish to Maven Central
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.root_dir }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: validate inputs and secrets
+        env:
+          TOOL: ${{ inputs.tool }}
+          HAS_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME != '' }}
+          HAS_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD != '' }}
+          HAS_KEY: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+          HAS_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE != '' }}
+        run: |
+          if [[ "$TOOL" != "./gradlew" ]]; then
+            echo "::error::[Maven Central] tool '$TOOL' is not supported; only ./gradlew with com.vanniktech.maven.publish is"
+            exit 3
+          fi
+          missing=()
+          [[ "$HAS_USERNAME" == "true" ]] || missing+=(MAVEN_CENTRAL_USERNAME)
+          [[ "$HAS_PASSWORD" == "true" ]] || missing+=(MAVEN_CENTRAL_PASSWORD)
+          [[ "$HAS_KEY" == "true" ]] || missing+=(GPG_PRIVATE_KEY)
+          [[ "$HAS_PASSPHRASE" == "true" ]] || missing+=(GPG_PASSPHRASE)
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::[Maven Central] missing secrets: ${missing[*]} -- pass them in the caller's secrets: block"
+            exit 2
+          fi
+
+      - name: configure jdk
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: "temurin"
+          java-version: ${{ inputs.java_version }}
+
+      - name: cache gradle
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: deps-./gradlew-${{ runner.os }}-${{ hashFiles('**/gradle.properties', '**/*.gradle', '**/*.gradle.kts', '**/gradle/libs.versions.toml', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            deps-./gradlew-${{ runner.os }}-
+
+      # Read from the POM the plugin generates rather than from gradle.properties
+      # or the project name: coordinates() may set any of the three, and the
+      # check below must ask Central about exactly what would be uploaded.
+      - name: read coordinates
+        id: coordinates
+        run: |
+          ./gradlew --quiet generatePomFileForMavenPublication
+          pom=build/publications/maven/pom-default.xml
+          if [[ ! -f "$pom" ]]; then
+            echo "::error::[Maven Central] $pom was not generated; is com.vanniktech.maven.publish applied?"
+            exit 3
+          fi
+          read -r group artifact version < <(python3 - "$pom" <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          root = ET.parse(sys.argv[1]).getroot()
+          print(*(root.findtext(f"m:{tag}", namespaces=ns) for tag in ("groupId", "artifactId", "version")))
+          EOF
+          )
+          if [[ -z "$group" || -z "$artifact" || -z "$version" || "$version" == "None" ]]; then
+            echo "::error::[Maven Central] incomplete coordinates in $pom: '$group:$artifact:$version'"
+            exit 3
+          fi
+          if [[ "$version" == *-SNAPSHOT ]]; then
+            echo "::error::[Maven Central] $version is a snapshot; the Central Portal publishes releases only"
+            exit 3
+          fi
+          echo "group=$group" >> "$GITHUB_OUTPUT"
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice::[Maven Central] $group:$artifact:$version"
+
+      # The Portal rejects a duplicate version, but only after signing and
+      # uploading; asking first turns a rerun into a clean skip.
+      - name: check if version already published
+        id: version_check
+        env:
+          USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          GROUP: ${{ steps.coordinates.outputs.group }}
+          ARTIFACT: ${{ steps.coordinates.outputs.artifact }}
+          VERSION: ${{ steps.coordinates.outputs.version }}
+        run: |
+          token=$(printf '%s:%s' "$USERNAME" "$PASSWORD" | base64 -w0)
+          echo "::add-mask::$token"
+          response=$(curl --silent --show-error --fail-with-body --get \
+            --header "Authorization: Bearer $token" \
+            --data-urlencode "namespace=$GROUP" \
+            --data-urlencode "name=$ARTIFACT" \
+            --data-urlencode "version=$VERSION" \
+            https://central.sonatype.com/api/v1/publisher/published) || {
+              echo "::error::[Maven Central] cannot determine publish status: $response"
+              exit 1
+            }
+          published=$(jq -r '.published' <<< "$response")
+          case "$published" in
+            true)
+              echo "::notice::[Maven Central] $GROUP:$ARTIFACT:$VERSION already published, skipping"
+              echo "already_published=true" >> "$GITHUB_OUTPUT" ;;
+            false)
+              echo "already_published=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::[Maven Central] unexpected answer from the Portal: $response"
+              exit 1 ;;
+          esac
+
+      - name: sign and publish to Maven Local (dry run)
+        if: ${{ inputs.dry_run && steps.version_check.outputs.already_published == 'false' }}
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+          ARTIFACT: ${{ steps.coordinates.outputs.artifact }}
+          VERSION: ${{ steps.coordinates.outputs.version }}
+        run: |
+          ./gradlew publishToMavenLocal
+          echo "::notice::[Maven Central] dry run: signed bundle built, nothing uploaded"
+          find ~/.m2/repository -path "*/$ARTIFACT/$VERSION/*" -type f | sort
+
+      - name: publish
+        if: ${{ !inputs.dry_run && steps.version_check.outputs.already_published == 'false' }}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+          PUBLISH_TASK: ${{ inputs.publish_task }}
+          COORDINATES: ${{ steps.coordinates.outputs.group }}:${{ steps.coordinates.outputs.artifact }}:${{ steps.coordinates.outputs.version }}
+        run: |
+          ./gradlew "$PUBLISH_TASK" --no-configuration-cache
+          echo "::notice::[Maven Central] published $COORDINATES"
