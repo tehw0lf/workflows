@@ -68,6 +68,11 @@ on:
         default: ""
         required: false
         type: string
+      java_version:
+        description: "Java version to use"
+        default: "21"
+        required: false
+        type: string
       rust_version:
         description: "rust toolchain version"
         default: "stable"
@@ -145,7 +150,7 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
             ~/.m2/repository
-          key: deps-${{ inputs.tool }}-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/uv.lock', '**/gradle.properties', '**/pom.xml') }}
+          key: deps-${{ inputs.tool }}-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/uv.lock', '**/gradle.properties', '**/*.gradle', '**/*.gradle.kts', '**/gradle/libs.versions.toml', '**/gradle-wrapper.properties', '**/pom.xml') }}
           restore-keys: |
             deps-${{ inputs.tool }}-${{ runner.os }}-
             deps-${{ inputs.tool }}-
@@ -155,7 +160,7 @@ jobs:
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: "temurin"
-          java-version: "21"
+          java-version: ${{ inputs.java_version }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}

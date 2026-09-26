@@ -81,12 +81,13 @@
     },
     {
       "customType": "regex",
-      "description": "Java runtime version pinned in setup-java steps",
+      "description": "Java runtime version (setup-java inputs and reusable-workflow defaults)",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+\\.ya?ml$/"
       ],
       "matchStrings": [
-        "java-version: \"(?<currentValue>\\d+)\""
+        "java-version: \"(?<currentValue>\\d+)\"",
+        "java_version:\\n\\s+description: \"Java version to use\"\\n\\s+default: \"(?<currentValue>\\d+)\""
       ],
       "depNameTemplate": "java",
       "datasourceTemplate": "java-version"
@@ -133,7 +134,7 @@
       "groupName": "python security tools"
     },
     {
-      "description": "Java pins are chosen per job (21 generic, 24 android); majors are a deliberate, tested change",
+      "description": "Java pins are chosen per job (21 generic default, 24 android) and callers override via java_version; majors are a deliberate, tested change",
       "matchDepNames": [
         "java"
       ],

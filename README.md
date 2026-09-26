@@ -105,6 +105,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | Input | Default | Description |
 |---|---|---|
 | `publish_python_libraries` | `false` | Validate build + tag for PyPI release (requires `tool: uv`; upload is parked, see §5) |
+| `java_version` | `21` | JDK major version for `tool: ./gradlew` or `mvn` (Temurin) |
 | `rust_version` | `stable` | Rust toolchain version |
 | `enable_clippy` | `true` | Run Clippy |
 | `enable_rustfmt` | `true` | Run rustfmt check |
