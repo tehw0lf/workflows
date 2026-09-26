@@ -197,6 +197,11 @@ on:
         default: 1
         required: false
         type: number
+      java_version:
+        description: "Java version to use"
+        default: "21"
+        required: false
+        type: string
       rust_version:
         description: "rust toolchain version"
         default: "stable"
@@ -289,6 +294,7 @@ jobs:
       artifact_path: ${{ inputs.artifact_path }}
       runner: ${{ inputs.runner }}
       app_root: ${{ inputs.app_root }}
+      java_version: ${{ inputs.java_version }}
       rust_version: ${{ inputs.rust_version }}
       enable_clippy: ${{ inputs.enable_clippy }}
       enable_rustfmt: ${{ inputs.enable_rustfmt }}
