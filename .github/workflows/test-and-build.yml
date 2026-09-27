@@ -9,7 +9,7 @@ on:
         required: false
         type: string
       tool:
-        description: "build tool - ./gradlew || npm || yarn || mvn || uv || cargo || bash"
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv || cargo || go || bash"
         default: "none"
         required: false
         type: string
@@ -71,6 +71,11 @@ on:
       java_version:
         description: "Java version to use"
         default: "21"
+        required: false
+        type: string
+      go_version:
+        description: "Go version to use; empty reads it from go.mod"
+        default: ""
         required: false
         type: string
       rust_version:
@@ -161,6 +166,19 @@ jobs:
         with:
           distribution: "temurin"
           java-version: ${{ inputs.java_version }}
+
+      # Unless go_version overrides it, the toolchain is the one go.mod
+      # declares, so a repository builds with the Go it says it needs. A module
+      # without dependencies has no go.sum, and setup-go's cache would fail on
+      # the missing file, so caching follows its presence.
+      - name: configure go
+        if: ${{ inputs.tool == 'go' }}
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go_version }}
+          go-version-file: ${{ inputs.go_version == '' && format('{0}/go.mod', inputs.root_dir) || '' }}
+          cache: ${{ hashFiles(format('{0}/go.sum', inputs.root_dir)) != '' }}
+          cache-dependency-path: ${{ inputs.root_dir }}/go.sum
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}

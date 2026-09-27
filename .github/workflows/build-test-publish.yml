@@ -29,7 +29,7 @@ on:
         required: false
         type: string
       tool:
-        description: "build tool - ./gradlew || npm || yarn || mvn || uv || cargo || bash"
+        description: "build tool - ./gradlew || npm || yarn || mvn || uv || cargo || go || bash"
         default: "none"
         required: false
         type: string
@@ -210,6 +210,11 @@ on:
         default: "21"
         required: false
         type: string
+      go_version:
+        description: "Go version to use; empty reads it from go.mod"
+        default: ""
+        required: false
+        type: string
       rust_version:
         description: "rust toolchain version"
         default: "stable"
@@ -313,6 +318,7 @@ jobs:
       runner: ${{ inputs.runner }}
       app_root: ${{ inputs.app_root }}
       java_version: ${{ inputs.java_version }}
+      go_version: ${{ inputs.go_version }}
       rust_version: ${{ inputs.rust_version }}
       enable_clippy: ${{ inputs.enable_clippy }}
       enable_rustfmt: ${{ inputs.enable_rustfmt }}
