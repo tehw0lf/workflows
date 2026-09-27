@@ -40,11 +40,11 @@ build-test-publish.yml (orchestrator)
 The main orchestrator that:
 - Takes comprehensive inputs for all supported tools and platforms
 - Conditionally triggers publishing workflows based on `github.event_name` (push vs pull_request) and input parameters
-- Supports multi-tool builds (npm, yarn, uv, cargo, ./gradlew, mvn, bash)
+- Supports multi-tool builds (npm, yarn, uv, cargo, go, ./gradlew, mvn, bash)
 
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
-- Sets up language-specific environments (Node.js v24.21.0, Python via pyproject.toml, Java via the `java_version` input, default 21)
+- Sets up language-specific environments (Node.js v24.21.0, Python via pyproject.toml, Java via the `java_version` input, default 21; Go from `go.mod` or `go_version`)
 - Implements comprehensive caching for dependencies across all tools (tool-specific cache keys)
 - Supports Nx monorepos with SHA optimization
 - Handles Playwright E2E testing automatically (supports .ts, .js, and .mjs config variants)

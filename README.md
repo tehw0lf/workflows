@@ -67,7 +67,7 @@ _Project & build_
 
 | Input | Default | Description |
 |---|---|---|
-| `tool` | `none` | Build tool: `npm`, `yarn`, `uv`, `cargo`, `./gradlew`, `mvn`, `bash` |
+| `tool` | `none` | Build tool: `npm`, `yarn`, `uv`, `cargo`, `go`, `./gradlew`, `mvn`, `bash` |
 | `root_dir` | `.` | Path to project root (set this for monorepos) |
 | `head_ref` | `""` | Branch that triggered the run — pass `${{ github.head_ref }}` |
 | `runner` | `ubuntu-latest` | Runner label for all jobs |
@@ -106,6 +106,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 |---|---|---|
 | `publish_python_libraries` | `false` | Validate build + tag for PyPI release (requires `tool: uv`; upload is parked, see §5) |
 | `java_version` | `21` | JDK major version for `tool: ./gradlew` or `mvn` (Temurin) |
+| `go_version` | `""` | Go version for `tool: go`; empty reads it from `go.mod` |
 | `rust_version` | `stable` | Rust toolchain version |
 | `enable_clippy` | `true` | Run Clippy |
 | `enable_rustfmt` | `true` | Run rustfmt check |
