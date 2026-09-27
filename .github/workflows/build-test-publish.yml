@@ -5,6 +5,8 @@ on:
     secrets:
       ANDROID_STOREPASS:
         required: false
+      ANDROID_KEYSTORE:
+        required: false
       MAVEN_CENTRAL_USERNAME:
         required: false
       MAVEN_CENTRAL_PASSWORD:
@@ -175,8 +177,12 @@ on:
         default: ""
         required: false
         type: string
+      # Scanning always runs. The input stays declared only so callers that
+      # still pass it are not rejected as invalid; it has no effect. Turning
+      # it off also skipped set_git_tag and every publish job, because they
+      # need security_scan_artifacts.
       enable_security_scanning:
-        description: "enable dual-layer security scanning (source + artifacts)"
+        description: "deprecated and ignored: security scanning always runs"
         default: true
         required: false
         type: boolean
@@ -285,7 +291,6 @@ jobs:
   lint:
     uses: ./.github/workflows/lint.yml
   security_scan_source:
-    if: ${{ inputs.enable_security_scanning }}
     needs: lint
     uses: ./.github/workflows/security-scan-source.yml
     with:
@@ -298,10 +303,6 @@ jobs:
       npm_audit_severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
   test_and_build:
     needs: [lint, security_scan_source]
-    if: |
-      always() &&
-      needs.lint.result == 'success' &&
-      (needs.security_scan_source.result == 'success' || needs.security_scan_source.result == 'skipped')
     uses: ./.github/workflows/test-and-build.yml
     with:
       root_dir: ${{ inputs.root_dir }}
@@ -329,7 +330,6 @@ jobs:
       cyclonedx_ignore_npm_errors: ${{ inputs.cyclonedx_ignore_npm_errors }}
 
   security_scan_artifacts:
-    if: ${{ inputs.enable_security_scanning }}
     needs: test_and_build
     uses: ./.github/workflows/security-scan-artifacts.yml
     with:
@@ -414,6 +414,7 @@ jobs:
       tool: ${{ inputs.tool }}
     secrets:
       ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+      ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
 
   release_github:
     if: ${{ github.event_name == 'push' &&  inputs.artifact_path != '' && inputs.publish_github_release }}
@@ -455,7 +456,7 @@ jobs:
       GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
   post_publish_verification:
-    if: ${{ inputs.enable_security_scanning && github.event_name == 'push' && inputs.docker_meta != '' }}
+    if: ${{ github.event_name == 'push' && inputs.docker_meta != '' }}
     needs: publish_docker_image
     uses: ./.github/workflows/post-publish-verification.yml
     with:
