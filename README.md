@@ -129,9 +129,10 @@ _Python, Rust, Firefox, Android, GitHub releases_
 
 _Security scanning_
 
+Scanning always runs; there is no switch to turn it off.
+
 | Input | Default | Description |
 |---|---|---|
-| `enable_security_scanning` | `true` | Master switch for all scanning layers |
 | `semgrep_rules` | `auto` | Ruleset: `auto`, `p/security-audit`, `p/owasp-top-ten`, `p/ci` |
 | `npm_audit_omit_dev` | `false` | Skip dev dependencies (use when dev-only vulns have no fix) |
 | `npm_audit_severity_threshold` | `moderate` | `low`, `moderate`, `high`, `critical` |
@@ -153,7 +154,7 @@ trivy_exit_code: "1"              # startup_failure
 ```
 
 Booleans here are `publish_github_release`, `publish_python_libraries`,
-`enable_security_scanning`, `npm_audit_omit_dev`, `enable_clippy`,
+`npm_audit_omit_dev`, `enable_clippy`,
 `enable_rustfmt`, `enable_lua`, `cargo_dry_run` and
 `cyclonedx_ignore_npm_errors`; numbers are
 `trivy_exit_code` and (in `security-scan-dast.yml`) `max_duration_minutes`.
@@ -325,7 +326,7 @@ Publishes Firefox browser extensions to Mozilla Add-ons.
 Builds and releases Android APK files.
 
 **Features:**
-- ✅ Automated keystore generation and caching
+- ✅ Signing keystore from the `ANDROID_KEYSTORE` secret; never generated, so every release is signed with the same key
 - ✅ APK signing and alignment
 - ✅ GitHub releases integration
 - ✅ Timeout protection (30 minutes)
@@ -390,7 +391,6 @@ Aggregates and reports results from all publishing workflows.
 **Configuration:**
 ```yaml
 with:
-  enable_security_scanning: true  # Enable/disable (default: enabled)
   semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
 ```
 
@@ -494,9 +494,12 @@ jobs:
 - Must be set at the top-level calling workflow, even if you're not publishing to npm, PyPI, or crates.io
 
 **`attestations: write`:**
-- Required by the `test_and_build` job, which attests SBOM provenance with Sigstore
-- Only takes effect for `tool: npm` / `tool: yarn`, but must be granted regardless —
-  permissions are evaluated before the job runs and cannot be made conditional
+- Required by the `attest_sbom` job, which attests SBOM provenance with Sigstore.
+  It runs separately from `test_and_build`, so the OIDC token never shares a job
+  with `npm ci` or the project's scripts
+- Only takes effect for `tool: npm` / `tool: yarn` with an `artifact_path`, but
+  must be granted regardless — permissions are evaluated before the job runs and
+  cannot be made conditional
 - Omitting it fails the build at the attestation step, not at setup
 
 **`security-events: write`:**
@@ -531,6 +534,7 @@ ADDON_API_SECRET: # AMO or ATN API secret, matching addon_api_url_prefix
 
 # For Android builds
 ANDROID_STOREPASS: # Android keystore password
+ANDROID_KEYSTORE: # base64 -w0 keystore.jks; required for Nx/Capacitor apps (alias my-key)
 
 # For Nx Cloud (optional)
 NX_CLOUD_ACCESS_TOKEN: # Nx Cloud access token
@@ -682,7 +686,6 @@ Verifies published Docker images:
 #### Configuration
 ```yaml
 with:
-  enable_security_scanning: true           # Enable/disable (default: enabled)
   semgrep_rules: "auto"                      # Semgrep ruleset
   trivy_severity: "MEDIUM,HIGH,CRITICAL"     # Severity threshold
   trivy_exit_code: 1                        # 0=warn only, 1=fail build
@@ -843,8 +846,6 @@ jobs:
       enable_clippy: true
       clippy_args: "-- -D warnings"
 
-      # Security scanning
-      enable_security_scanning: true
 
       # GitHub release configuration (optional)
       publish_github_release: true
@@ -1003,7 +1004,6 @@ permissions:
 - Check the security tab for specific findings
 - Review Semgrep rules configuration (`semgrep_rules` input)
 - For false positives, add `# nosemgrep` comments or adjust ruleset
-- Disable security scanning temporarily with `enable_security_scanning: false` (not recommended)
 
 #### Error: "Trivy found HIGH vulnerabilities"
 **Solution:**
@@ -1011,15 +1011,6 @@ permissions:
 - Update dependencies to patched versions
 - Adjust severity threshold if needed: `trivy_severity: "CRITICAL"` (less strict)
 - Set `trivy_exit_code: 0` to warn only (not recommended for production)
-
-#### Disable Security Scanning (Not Recommended)
-If you need to temporarily disable security scanning:
-```yaml
-with:
-  enable_security_scanning: false
-```
-
-**Warning:** Disabling security scanning removes critical protection against vulnerabilities. Only use this for testing or non-production workflows.
 
 ### Debug Mode
 

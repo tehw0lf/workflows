@@ -5,6 +5,9 @@ on:
     secrets:
       ANDROID_STOREPASS:
         required: false
+      ANDROID_KEYSTORE:
+        description: "base64 of the signing keystore (base64 -w0 keystore.jks); needed wherever this workflow signs, i.e. Nx/Capacitor apps"
+        required: false
     inputs:
       runner:
         description: "workflow-runner"
@@ -75,33 +78,38 @@ jobs:
         if: ${{ inputs.tool == 'npm' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         run: npm ci
 
-      - name: cache keystore
-        if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache
-        with:
-          path: ${{ inputs.app_root }}/android/app/keystore.jks
-          key: keystore-cache
-
-      - name: generate keystore
-        if: ${{ steps.cache.outputs.cache-hit != 'true' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
-        id: generate-keystore
-        run: |
-          keytool -genkeypair -v \
-            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias my-key \
-            -storepass "$ANDROID_STOREPASS" \
-            -dname "CN=Android, OU=Development, O=App"
-        env:
-          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
-
+      # Before the keystore step, which needs keytool.
       - name: set up jdk
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: "temurin"
           java-version: "24"
+
+      # The keystore comes from a secret and is never generated here. It used
+      # to live only in the Actions cache, which GitHub evicts after 7 days
+      # without access; the next release then generated a new key, and Android
+      # refuses to update an installed app signed with a different one (numveil
+      # v2.1.30 -> v2.1.31). A missing secret fails the release instead.
+      #
+      # Only where this workflow signs (Nx/Capacitor): React Native signs in
+      # its own Gradle build, see the sign step.
+      - name: restore keystore
+        if: ${{ hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+          KEYSTORE_PATH: ${{ inputs.app_root }}/android/app/keystore.jks
+        run: |
+          if [[ -z "$ANDROID_KEYSTORE" ]]; then
+            echo "::error::[Android] secret ANDROID_KEYSTORE is missing -- pass it in the caller's secrets: block (base64 -w0 keystore.jks)"
+            exit 2
+          fi
+          base64 --decode <<< "$ANDROID_KEYSTORE" > "$KEYSTORE_PATH"
+          # The fingerprint is public (it is in every APK) and makes a key
+          # change visible in the log.
+          fingerprint=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_STOREPASS" -alias my-key | grep -m1 'SHA256:' | tr -s ' ')
+          echo "::notice::[Android] signing certificate${fingerprint}"
 
       - name: set up android sdk
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}

@@ -129,10 +129,12 @@ jobs:
     name: test and build
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 180
+    # No id-token or attestations here: this job runs dependency install
+    # scripts and the project's own scripts, and npm Trusted Publishing only
+    # checks the caller's workflow file, so any job of the run holding an OIDC
+    # token could publish. Attesting happens in attest_sbom below.
     permissions:
       actions: write
-      attestations: write
-      id-token: write
       contents: read
       packages: read
     defaults:
@@ -355,13 +357,6 @@ jobs:
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
         run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
 
-      - name: attest SBOM
-        if: ${{ inputs.enable_sbom_attestation && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
-          sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
-
       - name: upload SBOM artifact
         if: ${{ inputs.enable_sbom_attestation && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -384,3 +379,40 @@ jobs:
         with:
           name: app
           path: ${{ inputs.app_root }}
+
+  # Signs the SBOM against the uploaded build artifact. Its own job so the OIDC
+  # token never shares a runner with npm ci or the project's scripts; it only
+  # downloads the two artifacts and runs the attest action.
+  #
+  # Needs artifact_path: without a build artifact there is nothing to attest
+  # (a docker-only repo used to attest its checked-out source files).
+  attest_sbom:
+    name: attest SBOM
+    needs: test_and_build
+    if: ${{ inputs.enable_sbom_attestation && (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.artifact_path != '' }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 10
+    permissions:
+      attestations: write
+      id-token: write
+    # Fixed staging directories rather than artifact_path: a single-file
+    # artifact is extracted *into* the download path, so reusing artifact_path
+    # would nest the file one level below the subject path.
+    steps:
+      - name: download build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build
+          path: attest/build
+
+      - name: download SBOM artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sbom-npm-libraries
+          path: attest/sbom
+
+      - name: attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: attest/build
+          sbom-path: attest/sbom/sbom.cyclonedx.json

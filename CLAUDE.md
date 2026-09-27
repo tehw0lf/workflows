@@ -56,7 +56,7 @@ Each specialized for different targets:
 - **npm**: Version comparison, multi-library support, input sanitization, dry-run validation, **uses OIDC Trusted Publishing (no NPM_TOKEN required)**, **SBOM generation and attestation with Sigstore**
 - **Python**: artifact validation + version tag; the direct `uv publish` step is **parked** (PyPI Trusted Publishing does not work through a reusable workflow) — publish from a tag-triggered workflow in the calling repo
 - **Firefox/Thunderbird**: XPI packaging, publishing to AMO or ATN via `addon_api_url_prefix`; `addon_approval_timeout` defaults to `0` because AMO never auto-signs listed add-ons, so there is no signed XPI to wait for
-- **Android**: APK building with keystore management
+- **Android**: APK building; the signing keystore comes from the `ANDROID_KEYSTORE` secret (base64) and is never generated, because a regenerated key breaks updates of installed apps
 - **GitHub**: Release creation with artifact attachment, supports `overwrite_release` for non-semver workflows
 
 #### NPM SBOM Attestation
@@ -166,7 +166,6 @@ Verifies **published Docker images** after deployment:
 **Configuration:**
 ```yaml
 inputs:
-  enable_security_scanning: true  # Enable/disable (default: enabled)
   semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
   trivy_severity: "MEDIUM,HIGH,CRITICAL"  # Severity threshold
   trivy_exit_code: 1               # 0=warn only, 1=fail build
@@ -301,9 +300,15 @@ jobs:
 - Cannot be controlled with `if` conditions - permissions are evaluated before job execution
 
 **Why is `attestations: write` required?**
-- The `test_and_build` job attests SBOM provenance with Sigstore and needs it
-- Only active for `tool: npm` / `tool: yarn`, but must be granted regardless —
-  permissions are evaluated before the job runs and cannot be conditional
+- The `attest_sbom` job in `test-and-build.yml` attests SBOM provenance with
+  Sigstore and needs it, together with `id-token: write`
+- That job is separate from `test_and_build` on purpose: the build job runs
+  `npm ci` and the project's scripts, and npm Trusted Publishing only checks the
+  caller's workflow file, so an OIDC token there could publish. `attest_sbom`
+  only downloads the build and SBOM artifacts and signs
+- Only active for `tool: npm` / `tool: yarn` with an `artifact_path`, but must be
+  granted regardless — permissions are evaluated before the job runs and cannot
+  be conditional
 - Omitting it fails the build at the attestation step
 
 **Why is `security-events: write` required?**
@@ -322,7 +327,6 @@ Key parameters:
 - `tool`: Determines build system (`npm`, `yarn`, `uv`, `cargo`, `./gradlew`, `mvn`, `bash`)
 - `root_dir`: Project root — required for monorepos, defaults to `.`
 - `artifact_path`: Where build outputs are stored/retrieved
-- `enable_security_scanning`: Enable/disable security scanning (default: `true`)
 - `semgrep_rules`: Semgrep ruleset configuration (default: "auto")
 - `trivy_severity`: Minimum severity threshold (default: "MEDIUM,HIGH,CRITICAL")
 - `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
@@ -343,7 +347,7 @@ YAML before relying on it):
 | Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel`, `addon_approval_timeout` |
 | Android | `app_root` |
 | Release | `publish_github_release`, `release_pre` |
-| Security | `enable_security_scanning`, `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
+| Security | `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
 
 Script inputs are appended to `tool`, so the value is the subcommand only
 (`build_main: "run build"`, not `"npm run build"`). Defaults are documented in the
@@ -361,7 +365,7 @@ inference. `actionlint` does not catch it (it accepts wrong types and even
 unknown input names), so the lint gate offers no protection here.
 
 Booleans: `publish_github_release`, `publish_python_libraries`,
-`enable_security_scanning`, `npm_audit_omit_dev`, `enable_clippy`,
+`npm_audit_omit_dev`, `enable_clippy`,
 `enable_rustfmt`, `cargo_dry_run`, `cyclonedx_ignore_npm_errors`, and
 `enable_sbom_attestation` / `enable_npm_audit_autofix` / `fail_on_warn` in the
 sub-workflows. Numbers: `trivy_exit_code`, `max_duration_minutes`.
