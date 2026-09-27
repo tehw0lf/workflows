@@ -395,21 +395,24 @@ jobs:
     permissions:
       attestations: write
       id-token: write
+    # Fixed staging directories rather than artifact_path: a single-file
+    # artifact is extracted *into* the download path, so reusing artifact_path
+    # would nest the file one level below the subject path.
     steps:
       - name: download build artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build
-          path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
+          path: attest/build
 
       - name: download SBOM artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sbom-npm-libraries
-          path: ${{ inputs.root_dir }}/sbom
+          path: attest/sbom
 
       - name: attest SBOM
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: ${{ inputs.root_dir }}/${{ inputs.artifact_path }}
-          sbom-path: ${{ inputs.root_dir }}/sbom/sbom.cyclonedx.json
+          subject-path: attest/build
+          sbom-path: attest/sbom/sbom.cyclonedx.json
