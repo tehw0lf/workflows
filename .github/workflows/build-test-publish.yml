@@ -177,15 +177,6 @@ on:
         default: ""
         required: false
         type: string
-      # Scanning always runs. The input stays declared only so callers that
-      # still pass it are not rejected as invalid; it has no effect. Turning
-      # it off also skipped set_git_tag and every publish job, because they
-      # need security_scan_artifacts.
-      enable_security_scanning:
-        description: "deprecated and ignored: security scanning always runs"
-        default: true
-        required: false
-        type: boolean
       semgrep_rules:
         description: "semgrep ruleset (auto, p/security-audit, p/owasp-top-ten, p/ci, etc.)"
         default: "auto"

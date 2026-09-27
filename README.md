@@ -129,9 +129,10 @@ _Python, Rust, Firefox, Android, GitHub releases_
 
 _Security scanning_
 
+Scanning always runs; there is no switch to turn it off.
+
 | Input | Default | Description |
 |---|---|---|
-| `enable_security_scanning` | `true` | Deprecated and ignored: scanning always runs. Still accepted so existing callers are not rejected |
 | `semgrep_rules` | `auto` | Ruleset: `auto`, `p/security-audit`, `p/owasp-top-ten`, `p/ci` |
 | `npm_audit_omit_dev` | `false` | Skip dev dependencies (use when dev-only vulns have no fix) |
 | `npm_audit_severity_threshold` | `moderate` | `low`, `moderate`, `high`, `critical` |
