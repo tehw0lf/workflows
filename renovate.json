@@ -90,7 +90,8 @@
         "java_version:\\n\\s+description: \"Java version to use\"\\n\\s+default: \"(?<currentValue>\\d+)\""
       ],
       "depNameTemplate": "java",
-      "datasourceTemplate": "java-version"
+      "datasourceTemplate": "java-version",
+      "extractVersionTemplate": "^(?<version>\\d+)"
     }
   ],
   "packageRules": [
@@ -134,14 +135,14 @@
       "groupName": "python security tools"
     },
     {
-      "description": "Java pins are chosen per job (21 generic default, 24 android) and callers override via java_version; majors are a deliberate, tested change",
+      "description": "Java pins are chosen per job (25 generic default, 24 android) and callers override via java_version; majors are a deliberate, tested change, so they wait for approval in the Dependency Dashboard",
       "matchDepNames": [
         "java"
       ],
       "matchUpdateTypes": [
         "major"
       ],
-      "enabled": false
+      "dependencyDashboardApproval": true
     }
   ]
 }

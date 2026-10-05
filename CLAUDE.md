@@ -44,7 +44,7 @@ The main orchestrator that:
 
 ### Test and Build (`test-and-build.yml`)
 Core workflow that:
-- Sets up language-specific environments (Node.js v24.21.0, Python via pyproject.toml, Java via the `java_version` input, default 21; Go from `go.mod` or `go_version`)
+- Sets up language-specific environments (Node.js v24.21.0, Python via pyproject.toml, Java via the `java_version` input, default 25; Go from `go.mod` or `go_version`)
 - Implements comprehensive caching for dependencies across all tools (tool-specific cache keys)
 - Supports Nx monorepos with SHA optimization
 - Handles Playwright E2E testing automatically (supports .ts, .js, and .mjs config variants)
@@ -430,8 +430,8 @@ Publishing only occurs on:
 The workflows dynamically adapt based on `tool` parameter:
 - **npm/yarn**: Node.js v24.21.0, package-lock.json/yarn.lock caching
 - **uv**: Python setup from pyproject.toml, uv.lock caching
-- **./gradlew**: JDK 21 Temurin, Gradle caching
-- **mvn**: JDK 21 Temurin, Maven repository caching
+- **./gradlew**: JDK 25 Temurin by default (`java_version`), Gradle caching — JDK 25 needs Gradle 9.1+
+- **mvn**: JDK 25 Temurin by default (`java_version`), Maven repository caching
 - **bash**: Shell script execution with basic environment setup
 
 ### Artifact Management
@@ -474,10 +474,18 @@ Renovate's custom managers track:
 - **npm CLI** — the `npm install -g npm@<major>` pin; minor/patch updates are
   disabled since the pin only expresses a major.
 - **Java** — the `java-version:` pin in `release-android-apk.yml` and the
-  `java_version` input default in `test-and-build.yml` / `build-test-publish.yml`.
-  The pins differ on purpose (21 generic, 24 android) and a caller may ask for
-  another major through `java_version`, so major updates are disabled; changing
-  a default major is a deliberate, tested change.
+  `java_version` input default in `test-and-build.yml` / `build-test-publish.yml` /
+  `publish-maven-central.yml`.
+  The pins differ on purpose (25 generic, 24 android) and a caller may ask for
+  another major through `java_version`, so a major update is never opened on
+  its own: it waits as a checkbox in the Dependency Dashboard
+  (`dependencyDashboardApproval`) until someone asks for the PR. Changing a
+  default major is a deliberate, tested change — the android pin stays on 24
+  until every `app_root` caller runs Gradle 9.1+, the first Gradle that runs on
+  JDK 25. The pins express a major
+  only, so `extractVersionTemplate` cuts the datasource's full versions
+  (`21.0.12+101.0.LTS`) down to the major — without it Renovate tries to write
+  the full version into the pin and the branch fails with "update failure".
 
 **When adding a new pinned tool version to a workflow, add a matching custom
 manager** — otherwise the pin is invisible to both bots and will go stale.

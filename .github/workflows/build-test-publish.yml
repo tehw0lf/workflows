@@ -204,7 +204,7 @@ on:
         type: number
       java_version:
         description: "Java version to use"
-        default: "21"
+        default: "25"
         required: false
         type: string
       go_version:
