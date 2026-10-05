@@ -13,6 +13,7 @@
   ],
   "commitMessagePrefix": "chore(deps):",
   "prConcurrentLimit": 5,
+  "dependencyDashboardAutoclose": true,
   "enabledManagers": [
     "custom.regex"
   ],
