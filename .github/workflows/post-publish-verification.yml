@@ -73,7 +73,7 @@ jobs:
           path: |
             /usr/local/bin/trivy
             ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-v0.74.0
+          key: ${{ runner.os }}-trivy-v0.75.0
           restore-keys: |
             ${{ runner.os }}-trivy-
 
