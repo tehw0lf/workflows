@@ -105,7 +105,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | Input | Default | Description |
 |---|---|---|
 | `publish_python_libraries` | `false` | Validate build + tag for PyPI release (requires `tool: uv`; upload is parked, see §5) |
-| `java_version` | `25` | JDK major version for `tool: ./gradlew` or `mvn` (Temurin) |
+| `java_version` | `25` | JDK major version for `tool: ./gradlew` or `mvn` (Temurin). JDK 25 needs Gradle 9.1+; with an older wrapper pass `java_version: "21"` |
 | `go_version` | `""` | Go version for `tool: go`; empty reads it from `go.mod` |
 | `rust_version` | `stable` | Rust toolchain version |
 | `enable_clippy` | `true` | Run Clippy |
