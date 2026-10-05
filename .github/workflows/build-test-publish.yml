@@ -403,6 +403,7 @@ jobs:
       app_root: ${{ inputs.app_root }}
       artifact_path: ${{ inputs.artifact_path }}
       tool: ${{ inputs.tool }}
+      java_version: ${{ inputs.java_version }}
     secrets:
       ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
       ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}

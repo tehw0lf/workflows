@@ -473,16 +473,17 @@ Renovate's custom managers track:
   on the active LTS line rather than jumping to an odd/current release.
 - **npm CLI** — the `npm install -g npm@<major>` pin; minor/patch updates are
   disabled since the pin only expresses a major.
-- **Java** — the `java-version:` pin in `release-android-apk.yml` and the
-  `java_version` input default in `test-and-build.yml` / `build-test-publish.yml` /
-  `publish-maven-central.yml`.
-  The pins differ on purpose (25 generic, 24 android) and a caller may ask for
-  another major through `java_version`, so a major update is never opened on
-  its own: it waits as a checkbox in the Dependency Dashboard
-  (`dependencyDashboardApproval`) until someone asks for the PR. Changing a
-  default major is a deliberate, tested change — the android pin stays on 24
-  until every `app_root` caller runs Gradle 9.1+, the first Gradle that runs on
-  JDK 25. The pins express a major
+- **Java** — the `java_version` input default in `test-and-build.yml` /
+  `build-test-publish.yml` / `publish-maven-central.yml` /
+  `release-android-apk.yml`.
+  All defaults are the same major (25) and a caller may ask for another one
+  through `java_version`, which the orchestrator also passes to the Android
+  release job. A major update is never opened on its own: it waits as a
+  checkbox in the Dependency Dashboard (`dependencyDashboardApproval`) until
+  someone asks for the PR. Changing the default major is a deliberate, tested
+  change — JDK 25 needs Gradle 9.1+, so an `app_root` caller with an older
+  Gradle wrapper has to pass a `java_version` its wrapper supports. The pins
+  express a major
   only, so `extractVersionTemplate` cuts the datasource's full versions
   (`21.0.12+101.0.LTS`) down to the major — without it Renovate tries to write
   the full version into the pin and the branch fails with "update failure".

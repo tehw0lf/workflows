@@ -136,7 +136,7 @@
       "groupName": "python security tools"
     },
     {
-      "description": "Java pins are chosen per job (25 generic default, 24 android) and callers override via java_version; majors are a deliberate, tested change, so they wait for approval in the Dependency Dashboard",
+      "description": "Java defaults are one major for all jobs and callers override via java_version; majors are a deliberate, tested change, so they wait for approval in the Dependency Dashboard",
       "matchDepNames": [
         "java"
       ],
