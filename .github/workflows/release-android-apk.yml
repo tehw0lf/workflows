@@ -124,8 +124,10 @@ jobs:
 
       - name: build apk
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
+        env:
+          APP_ROOT: ${{ inputs.app_root }}
         run: |
-          cd ${{ inputs.app_root }}/android
+          cd "$APP_ROOT/android"
           chmod +x gradlew
           ./gradlew assembleRelease
 
@@ -133,19 +135,22 @@ jobs:
         if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
         run: |
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore ${{ inputs.app_root }}/android/app/keystore.jks \
+            -keystore "$APP_ROOT/android/app/keystore.jks" \
             -storepass "$ANDROID_STOREPASS" \
             -keypass "$ANDROID_STOREPASS" \
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk my-key
+            "$APP_ROOT/android/app/build/outputs/apk/release/app-release-unsigned.apk" my-key
         env:
           ANDROID_STOREPASS: ${{ secrets.ANDROID_STOREPASS }}
+          APP_ROOT: ${{ inputs.app_root }}
 
       - name: align apk
         if: ${{ success() && hashFiles('./nx.json') != '' && steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true'}}
+        env:
+          APP_ROOT: ${{ inputs.app_root }}
         run: |
-          ${ANDROID_SDK_ROOT}/build-tools/35.0.0/zipalign -v 4 \
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            ${{ inputs.app_root }}/android/app/build/outputs/apk/release/app-release.apk
+          "${ANDROID_SDK_ROOT}/build-tools/35.0.0/zipalign" -v 4 \
+            "$APP_ROOT/android/app/build/outputs/apk/release/app-release-unsigned.apk" \
+            "$APP_ROOT/android/app/build/outputs/apk/release/app-release.apk"
 
       - name: extract version from package.json
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
@@ -162,8 +167,8 @@ jobs:
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
         id: check_release_exists
         run: |
-          if gh release view "${{ env.RELEASE_TAG }}" &>/dev/null; then
-            echo "::warning::[Release] Release ${{ env.RELEASE_TAG }} already exists, skipping"
+          if gh release view "$RELEASE_TAG" &>/dev/null; then
+            echo "::warning::[Release] Release $RELEASE_TAG already exists, skipping"
             echo "release_exists=true" >> $GITHUB_OUTPUT
           fi
         env:
