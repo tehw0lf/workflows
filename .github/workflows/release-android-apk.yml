@@ -29,6 +29,11 @@ on:
         default: "none"
         required: false
         type: string
+      java_version:
+        description: "Java version to use"
+        default: "25"
+        required: false
+        type: string
 
 jobs:
   release_android_apk:
@@ -84,7 +89,7 @@ jobs:
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: "temurin"
-          java-version: "25"
+          java-version: ${{ inputs.java_version }}
 
       # The keystore comes from a secret and is never generated here. It used
       # to live only in the Actions cache, which GitHub evicts after 7 days

@@ -105,7 +105,7 @@ _Python, Rust, Firefox, Android, GitHub releases_
 | Input | Default | Description |
 |---|---|---|
 | `publish_python_libraries` | `false` | Validate build + tag for PyPI release (requires `tool: uv`; upload is parked, see §5) |
-| `java_version` | `25` | JDK major version for `tool: ./gradlew` or `mvn` (Temurin). JDK 25 needs Gradle 9.1+; with an older wrapper pass `java_version: "21"` |
+| `java_version` | `25` | JDK major version (Temurin) for `tool: ./gradlew` or `mvn`, and for the Android APK release job (`app_root`). JDK 25 needs Gradle 9.1+; with an older wrapper pass `java_version: "21"` |
 | `go_version` | `""` | Go version for `tool: go`; empty reads it from `go.mod` |
 | `rust_version` | `stable` | Rust toolchain version |
 | `enable_clippy` | `true` | Run Clippy |
@@ -327,6 +327,7 @@ Builds and releases Android APK files.
 
 **Features:**
 - ✅ Signing keystore from the `ANDROID_KEYSTORE` secret; never generated, so every release is signed with the same key
+- ✅ JDK chosen by the caller through `java_version` (default 25); an app whose Gradle wrapper is older than 9.1 has to pass a JDK that wrapper supports
 - ✅ APK signing and alignment
 - ✅ GitHub releases integration
 - ✅ Timeout protection (30 minutes)
