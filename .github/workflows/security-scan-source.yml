@@ -131,7 +131,7 @@ jobs:
 
       # Layer 1a: Semgrep SAST (all languages)
       - name: install semgrep
-        run: pip install semgrep==1.179.0
+        run: pip install semgrep==1.180.0
 
       - name: semgrep security scan
         id: semgrep
