@@ -135,7 +135,7 @@ jobs:
 
       - name: upload security scan reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: security-scan-artifact-reports
           path: |
@@ -270,7 +270,7 @@ jobs:
 
       - name: upload docker scan reports
         if: always() && steps.docker-scan.outcome != 'skipped'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: docker-scan-reports
           path: trivy-sarif/trivy-image-*.sarif
