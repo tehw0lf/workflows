@@ -229,7 +229,7 @@ jobs:
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.21.0"
+          node-version: "24.22.0"
           cache: "${{ inputs.tool }}"
           cache-dependency-path: |
             ${{ inputs.root_dir }}/package-lock.json
@@ -274,7 +274,7 @@ jobs:
       mode: "branch"
       head_ref: ${{ inputs.head_ref }}
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.21.0"
+      node_version: "24.22.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
 
@@ -292,7 +292,7 @@ jobs:
       mode: "scheduled"
       base_branch: ${{ inputs.audit_fix_base_branch }}
       root_dir: ${{ inputs.root_dir }}
-      node_version: "24.21.0"
+      node_version: "24.22.0"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
 
