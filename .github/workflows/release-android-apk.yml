@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: check app artifact existence
-        uses: softwareforgood/check-artifact-v4-existence@f988c59be23773bdf226dffa5720d85a13501fba # v0.4.3
+        uses: softwareforgood/check-artifact-v4-existence@aa38f28173867521c7f5a7d26285f2c2d9a014bd # v0.4.5
         id: check_app_artifact_exists
         with:
           name: app
@@ -61,7 +61,7 @@ jobs:
           path: ${{ inputs.app_root }}
 
       - name: check build artifact existence
-        uses: softwareforgood/check-artifact-v4-existence@f988c59be23773bdf226dffa5720d85a13501fba # v0.4.3
+        uses: softwareforgood/check-artifact-v4-existence@aa38f28173867521c7f5a7d26285f2c2d9a014bd # v0.4.5
         id: check_build_artifact_exists
         with:
           name: build
