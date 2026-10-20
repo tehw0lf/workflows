@@ -70,7 +70,7 @@ jobs:
       - name: check if build artifact exists
         if: ${{ inputs.artifact_path != '' }}
         id: check-artifact
-        uses: softwareforgood/check-artifact-v4-existence@f988c59be23773bdf226dffa5720d85a13501fba # v0.4.3
+        uses: softwareforgood/check-artifact-v4-existence@aa38f28173867521c7f5a7d26285f2c2d9a014bd # v0.4.5
         with:
           name: build
 
