@@ -74,7 +74,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: ${{ inputs.tool == 'npm' || inputs.tool == 'yarn' }}
         with:
-          node-version: "24.22.1"
+          node-version: "24.22.2"
           registry-url: "https://registry.npmjs.org"
           cache: "${{ inputs.tool }}"
           cache-dependency-path: |

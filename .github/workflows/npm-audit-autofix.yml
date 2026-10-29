@@ -32,7 +32,7 @@ on:
         type: string
       node_version:
         description: "Node.js version to use"
-        default: "24.22.1"
+        default: "24.22.2"
         required: false
         type: string
       omit_dev:
