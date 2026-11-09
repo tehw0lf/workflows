@@ -114,8 +114,9 @@ not exposed by `build-test-publish.yml`, so callers of the orchestrator get it
 on `schedule` / `workflow_dispatch` runs and can opt out only by calling
 `security-scan-source.yml` directly with `open_failure_issue: false`. The
 artifacts of `security-scan-source.yml` carry a suffix made from `root_dir`
-(sanitised slug plus a short hash), so several calls in one run do not collide
-and `failure_issue` downloads the summary of its own call. Its job declares `issues: write`, so every
+(sanitised slug plus a short hash), so several calls with different `root_dir` values in one run do not collide
+and `failure_issue` downloads the summary of its own call. Calls that share a
+`root_dir` still use identical names (tracked in #216). Its job declares `issues: write`, so every
 caller of `security-scan-source.yml` and `build-test-publish.yml` must grant
 that permission whatever the input says. The scripts read scanner output in the
 `scan_source` step `summarize scan failures`; values reach them through `env:`.

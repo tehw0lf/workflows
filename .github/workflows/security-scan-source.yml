@@ -457,8 +457,9 @@ jobs:
       issues: write
     steps:
       - name: download scan failure summary
-        # Without a name the action downloads every artifact of the run, which
-        # would bring back the mix-up between root_dirs: require the suffix.
+        # With an empty suffix the name below would be one fixed name shared by
+        # every call whose suffix step did not run, which would bring back the
+        # mix-up between root_dirs: require the suffix.
         if: >-
           needs.scan_source.result == 'failure' &&
           needs.scan_source.outputs.artifact_suffix != ''
