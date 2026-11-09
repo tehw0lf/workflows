@@ -109,8 +109,14 @@ The `failure_issue` job of `security-scan-source.yml` opens one issue per
 `root_dir` in the calling repository when a `schedule` / `workflow_dispatch`
 scan fails, updates it while it keeps failing (a comment only when the set of
 failing tools or findings changed) and closes it when a later scheduled/manual
-run passes. It is off by default (`open_failure_issue: false`) and is not
-exposed by `build-test-publish.yml`. Its job declares `issues: write`, so every
+run passes. It is on by default; `open_failure_issue: false` opts out. It is
+not exposed by `build-test-publish.yml`, so callers of the orchestrator get it
+on `schedule` / `workflow_dispatch` runs and can opt out only by calling
+`security-scan-source.yml` directly with `open_failure_issue: false`. The
+artifacts of `security-scan-source.yml` carry a suffix made from `root_dir`
+(sanitised slug plus a short hash), so several calls with different `root_dir` values in one run do not collide
+and `failure_issue` downloads the summary of its own call. Calls that share a
+`root_dir` still use identical names (tracked in #216). Its job declares `issues: write`, so every
 caller of `security-scan-source.yml` and `build-test-publish.yml` must grant
 that permission whatever the input says. The scripts read scanner output in the
 `scan_source` step `summarize scan failures`; values reach them through `env:`.
@@ -328,7 +334,7 @@ jobs:
 **Why is `issues: write` required?**
 - The `failure_issue` job in `security-scan-source.yml` opens, updates and closes
   the scan failure issue (`open_failure_issue`) and declares `issues: write`
-- It must be granted even when `open_failure_issue` is off: permissions are
+- It must be granted whatever `open_failure_issue` is set to: permissions are
   evaluated before the job's `if`, so a caller that grants less than the called
   workflow declares fails at startup
 
@@ -340,7 +346,7 @@ jobs:
 ### Workflow Input Patterns
 
 **The `workflow_call.inputs` block of `build-test-publish.yml` is the single source of
-truth** for the 44 available inputs — read it rather than trusting any list, here or in
+truth** for the 49 available inputs — read it rather than trusting any list, here or in
 the README. The README's "Optional Inputs (complete)" table mirrors it and must be
 updated in the same commit whenever an input is added, renamed or removed.
 
@@ -353,17 +359,19 @@ Key parameters:
 - `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
 - Platform-specific metadata (`docker_meta`, `xpi_path`, etc.)
 
-**Complete input list** (44; mirror of `workflow_call.inputs` — verify against the
+**Complete input list** (49; mirror of `workflow_call.inputs` — verify against the
 YAML before relying on it):
 
 | Group | Inputs |
 |---|---|
-| Project | `tool`, `root_dir`, `head_ref`, `runner` |
+| Project | `tool`, `root_dir`, `head_ref`, `runner`, `java_version`, `go_version` |
 | Scripts | `install`, `format`, `lint`, `test`, `e2e`, `build_branch`, `build_main`, `post_build_script` |
 | Artifacts | `artifact_path` |
 | Docker | `docker_meta`, `docker_namespace`, `registry`, `platforms`, `docker_pre` |
 | npm | `libraries`, `library_path`, `npm_namespace`, `cyclonedx_ignore_npm_errors` |
 | Python | `publish_python_libraries` |
+| Lua | `enable_lua`, `lua_version` |
+| Maven | `publish_maven_central`, `maven_central_dry_run` |
 | Rust | `rust_version`, `enable_clippy`, `enable_rustfmt`, `clippy_args`, `cargo_features`, `cargo_dry_run`, `cargo_package_name`, `cargo_publish_flags` |
 | Extensions | `xpi_path`, `addon_api_url_prefix`, `addon_channel`, `addon_approval_timeout` |
 | Android | `app_root` |
@@ -387,7 +395,8 @@ unknown input names), so the lint gate offers no protection here.
 
 Booleans: `publish_github_release`, `publish_python_libraries`,
 `npm_audit_omit_dev`, `enable_clippy`,
-`enable_rustfmt`, `cargo_dry_run`, `cyclonedx_ignore_npm_errors`, and
+`enable_rustfmt`, `enable_lua`, `cargo_dry_run`, `publish_maven_central`,
+`maven_central_dry_run`, `cyclonedx_ignore_npm_errors`, and
 `enable_sbom_attestation` / `enable_npm_audit_autofix` / `fail_on_warn` /
 `open_failure_issue` in the sub-workflows. Numbers: `trivy_exit_code`, `max_duration_minutes`.
 

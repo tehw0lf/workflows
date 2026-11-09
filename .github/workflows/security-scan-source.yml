@@ -75,8 +75,9 @@ on:
         description: "open (or update) one issue in the calling repository when
           a scheduled/manual scan fails, and close it when a later one passes.
           Callers must grant 'issues: write' whatever the value is: permissions
-          cannot be conditional in a reusable workflow."
-        default: false
+          cannot be conditional in a reusable workflow. On by default; set to
+          false to opt out."
+        default: true
         required: false
         type: boolean
     outputs:
@@ -123,6 +124,7 @@ jobs:
       npm_audit_result: ${{ steps.npm-audit.outcome }}
       pip_audit_result: ${{ steps.pip-audit.outcome }}
       yarn_audit_result: ${{ steps.yarn-audit.outcome }}
+      artifact_suffix: ${{ steps.artifact.outputs.suffix }}
     defaults:
       run:
         working-directory: ${{ inputs.root_dir }}
@@ -131,6 +133,20 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      # Artifact names must be unique within a workflow run, so every call of
+      # this reusable workflow gets its own: a readable slug of root_dir plus
+      # a short hash of the raw value (the slug alone would map apps/web and
+      # apps-web to one name). failure_issue reads the suffix as a job output.
+      - name: compute artifact name suffix
+        id: artifact
+        env:
+          ROOT_DIR: ${{ inputs.root_dir }}
+        run: |
+          slug="$(printf '%s' "$ROOT_DIR" | sed 's/[^A-Za-z0-9._-]/-/g; s/^[.-]*//; s/[.-]*$//')"
+          [ -n "$slug" ] || slug="root"
+          hash="$(printf '%s' "$ROOT_DIR" | sha256sum | cut -c1-8)"
+          echo "suffix=${slug}-${hash}" >> "$GITHUB_OUTPUT"
 
       # Setup Python once for all tools (Semgrep, Bandit, pip-audit)
       - name: setup python (from pyproject.toml for uv, 3.14 otherwise)
@@ -263,7 +279,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: security-scan-source-reports
+          name: security-scan-source-reports-${{ steps.artifact.outputs.suffix }}
           path: |
             ${{ inputs.root_dir }}/bandit-report.json
             ${{ inputs.root_dir }}/semgrep.sarif
@@ -381,7 +397,7 @@ jobs:
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: security-scan-source-failure-summary
+          name: security-scan-source-failure-summary-${{ steps.artifact.outputs.suffix }}
           path: ${{ inputs.root_dir }}/scan-failure-summary.md
           if-no-files-found: ignore
 
@@ -424,10 +440,10 @@ jobs:
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
 
-  # Optional: one issue per root_dir in the calling repository while the
-  # scheduled/manual scan fails, closed by the next passing run. Needs
-  # `issues: write`, which the caller has to grant whether or not
-  # open_failure_issue is set (permissions cannot be conditional).
+  # On by default (open_failure_issue: false opts out): one issue per root_dir
+  # in the calling repository while the scheduled/manual scan fails, closed by
+  # the next passing run. Needs `issues: write`, which the caller has to grant
+  # whatever open_failure_issue is set to (permissions cannot be conditional).
   failure_issue:
     name: open, update or close the scan failure issue
     needs: [scan_source, scheduled-audit-fix]
@@ -441,10 +457,15 @@ jobs:
       issues: write
     steps:
       - name: download scan failure summary
-        if: needs.scan_source.result == 'failure'
+        # With an empty suffix the name below would be one fixed name shared by
+        # every call whose suffix step did not run, which would bring back the
+        # mix-up between root_dirs: require the suffix.
+        if: >-
+          needs.scan_source.result == 'failure' &&
+          needs.scan_source.outputs.artifact_suffix != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: security-scan-source-failure-summary
+          name: security-scan-source-failure-summary-${{ needs.scan_source.outputs.artifact_suffix }}
           path: ${{ runner.temp }}/failure-summary
         continue-on-error: true
 
