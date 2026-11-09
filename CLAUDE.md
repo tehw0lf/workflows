@@ -114,6 +114,8 @@ exposed by `build-test-publish.yml`. Its job declares `issues: write`, so every
 caller of `security-scan-source.yml` and `build-test-publish.yml` must grant
 that permission whatever the input says. The scripts read scanner output in the
 `scan_source` step `summarize scan failures`; values reach them through `env:`.
+Scanners that apply to the `tool` but were skipped after an earlier scanner step
+failed are listed under "Not run" in the summary.
 
 ##### npm audit auto-fix (`npm-audit-autofix.yml`)
 When `npm audit` fails, this workflow runs `npm audit fix` and opens a PR with the

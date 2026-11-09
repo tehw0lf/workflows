@@ -285,6 +285,7 @@ jobs:
           YARN_AUDIT_OUTCOME: ${{ steps.yarn-audit.outcome }}
           THRESHOLD: ${{ inputs.npm_audit_severity_threshold }}
           OMIT_DEV: ${{ inputs.npm_audit_omit_dev }}
+          TOOL: ${{ inputs.tool }}
         run: |
           out=scan-failure-summary.md
           : > "$out"
@@ -359,6 +360,19 @@ jobs:
               echo
             } >> "$out"
             rm -f yarn-audit.json
+          fi
+
+          # A scanner that applies to this tool but was skipped never ran: a
+          # failed earlier step stops the later ones, so its findings are unknown.
+          not_run=""
+          if [ "$TOOL" = "uv" ]; then
+            [ "$BANDIT_OUTCOME" = "skipped" ] && not_run="$not_run bandit"
+            [ "$PIP_AUDIT_OUTCOME" = "skipped" ] && not_run="$not_run pip-audit"
+          fi
+          [ "$TOOL" = "npm" ] && [ "$NPM_AUDIT_OUTCOME" = "skipped" ] && not_run="$not_run npm-audit"
+          [ "$TOOL" = "yarn" ] && [ "$YARN_AUDIT_OUTCOME" = "skipped" ] && not_run="$not_run yarn-audit"
+          if [ -n "$not_run" ]; then
+            printf '### Not run\n\nThese scanners did not run because an earlier step failed, so their findings are unknown:%s. See the run log.\n\n' "$(printf '%s' "$not_run" | sed 's/ /, /g; s/^,//')" >> "$out"
           fi
 
       - name: upload scan failure summary
