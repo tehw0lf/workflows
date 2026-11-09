@@ -41,7 +41,7 @@ jobs:
 **Important permissions:**
 - **`id-token: write` is REQUIRED for all workflows** - Currently used for npm, Python, and Rust Trusted Publishing (no NPM_TOKEN, UV_TOKEN, or CARGO_REGISTRY_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
 - **`security-events: write` is REQUIRED** - Enables SARIF uploads to GitHub Security tab for centralized vulnerability tracking
-- **`issues: write` is REQUIRED** - `security-scan-source.yml` has a job that can open an issue when a scheduled scan fails; the job needs this permission even when the `open_failure_issue` input is off, so a caller that does not grant it fails at startup
+- **`issues: write` is REQUIRED** - `security-scan-source.yml` has a job that can open an issue when a scheduled scan fails; the job needs this permission whatever the `open_failure_issue` input is set to, so a caller that does not grant it fails at startup
 - Due to GitHub Actions limitations, these permissions must be set at the top-level calling workflow, regardless of which publishing workflows you use
 - If using `release-it` for npm, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
 
@@ -63,7 +63,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Optional Inputs (complete):**
 
-All 44 inputs are optional. Grouped by purpose; defaults are the workflow's own.
+All 49 inputs are optional. Grouped by purpose; defaults are the workflow's own.
 
 _Project & build_
 
@@ -157,8 +157,8 @@ trivy_exit_code: "1"              # startup_failure
 
 Booleans here are `publish_github_release`, `publish_python_libraries`,
 `npm_audit_omit_dev`, `enable_clippy`,
-`enable_rustfmt`, `enable_lua`, `cargo_dry_run` and
-`cyclonedx_ignore_npm_errors`; numbers are
+`enable_rustfmt`, `enable_lua`, `cargo_dry_run`, `publish_maven_central`,
+`maven_central_dry_run` and `cyclonedx_ignore_npm_errors`; numbers are
 `trivy_exit_code` and (in `security-scan-dast.yml`) `max_duration_minutes`.
 Note that `actionlint` does **not** catch this class of error — it accepts
 mismatched types, unknown input names and all — so the first sign of trouble is a
@@ -395,12 +395,12 @@ Aggregates and reports results from all publishing workflows.
 ```yaml
 with:
   semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
-  open_failure_issue: true           # default: false
+  open_failure_issue: false          # default: true
 ```
 
-**Scan failure issue (`open_failure_issue`, default `false`):** on `schedule` and `workflow_dispatch` runs, when the scan job fails, the `failure_issue` job opens one issue in the calling repository. It names each scanner step that failed: the semgrep rules (unsuppressed findings, with counts), or that no valid SARIF was produced; the vulnerable npm or yarn packages with their severity at or above `npm_audit_severity_threshold`; bandit and pip-audit by name, with a pointer to the run log. Scanners that apply to the `tool` but were skipped because an earlier scanner step failed (for example `npm audit` after a failed semgrep check) are listed under "Not run", since their findings are unknown. Lists are capped at 50 entries. There is one issue per `root_dir`, marked by a comment on the first line of its body. While it is open, later failing runs rewrite its body and add a comment only when the set of failing tools or findings changed. A later scheduled or manual run that passes comments with its run link and closes the issue. When `scheduled-audit-fix` opened an `npm audit fix` PR, the issue links it. The job does not run for push or pull request events, and it is not exposed through `build-test-publish.yml`: call `security-scan-source.yml` directly to use it.
+**Scan failure issue (`open_failure_issue`, default `true`):** on `schedule` and `workflow_dispatch` runs, when the scan job fails, the `failure_issue` job opens one issue in the calling repository. It names each scanner step that failed: the semgrep rules (unsuppressed findings, with counts), or that no valid SARIF was produced; the vulnerable npm or yarn packages with their severity at or above `npm_audit_severity_threshold`; bandit and pip-audit by name, with a pointer to the run log. Scanners that apply to the `tool` but were skipped because an earlier scanner step failed (for example `npm audit` after a failed semgrep check) are listed under "Not run", since their findings are unknown. Lists are capped at 50 entries. There is one issue per `root_dir`, marked by a comment on the first line of its body. While it is open, later failing runs rewrite its body and add a comment only when the set of failing tools or findings changed. A later scheduled or manual run that passes comments with its run link and closes the issue. When `scheduled-audit-fix` opened an `npm audit fix` PR, the issue links it. The job does not run for push or pull request events, and it is not exposed through `build-test-publish.yml`: callers of the orchestrator get the job on `schedule` and `workflow_dispatch` runs, and opting out means calling `security-scan-source.yml` directly with `open_failure_issue: false`. The artifacts of `security-scan-source.yml` carry a suffix made from `root_dir` (sanitised slug plus a short hash), so several calls in one workflow run do not collide and `failure_issue` downloads the summary of its own call.
 
-**Requires `issues: write`:** the job declares it, so every caller of `security-scan-source.yml` (directly or through `build-test-publish.yml`) has to grant `issues: write` whether or not `open_failure_issue` is set; without it the run fails at startup.
+**Requires `issues: write`:** the job declares it, so every caller of `security-scan-source.yml` (directly or through `build-test-publish.yml`) has to grant `issues: write` whatever `open_failure_issue` is set to; without it the run fails at startup.
 
 **All tools are 100% free and open source:**
 - ✅ No signup required, no usage limits
@@ -519,7 +519,7 @@ jobs:
 
 **`issues: write`:**
 - Required by the `failure_issue` job of `security-scan-source.yml`, which opens, updates and closes the scan failure issue (`open_failure_issue`)
-- Needed even when `open_failure_issue` is off: permissions are evaluated before the job's `if`, and a caller that grants less than a called job declares fails at startup
+- Needed whatever `open_failure_issue` is set to: permissions are evaluated before the job's `if`, and a caller that grants less than a called job declares fails at startup
 - Cannot be conditionally granted in reusable workflows
 
 #### Required Secrets
