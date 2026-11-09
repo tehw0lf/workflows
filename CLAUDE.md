@@ -104,6 +104,19 @@ Scans source code and dependencies **before building**:
 - Uploads SARIF reports to GitHub Security tab
 - Fails fast to prevent building vulnerable code
 
+##### Scan failure issue (`open_failure_issue`)
+The `failure_issue` job of `security-scan-source.yml` opens one issue per
+`root_dir` in the calling repository when a `schedule` / `workflow_dispatch`
+scan fails, updates it while it keeps failing (a comment only when the set of
+failing tools or findings changed) and closes it when a later scheduled/manual
+run passes. It is off by default (`open_failure_issue: false`) and is not
+exposed by `build-test-publish.yml`. Its job declares `issues: write`, so every
+caller of `security-scan-source.yml` and `build-test-publish.yml` must grant
+that permission whatever the input says. The scripts read scanner output in the
+`scan_source` step `summarize scan failures`; values reach them through `env:`.
+Scanners that apply to the `tool` but were skipped after an earlier scanner step
+failed are listed under "Not run" in the summary.
+
 ##### npm audit auto-fix (`npm-audit-autofix.yml`)
 When `npm audit` fails, this workflow runs `npm audit fix` and opens a PR with the
 resulting `package-lock.json` changes. It has two modes, both dispatched
@@ -288,6 +301,7 @@ jobs:
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
       security-events: write # Required for SARIF uploads (security scanning)
+      issues: write         # Required by security-scan-source.yml (scan failure issue)
     with:
       # ... inputs
 ```
@@ -310,6 +324,13 @@ jobs:
   granted regardless — permissions are evaluated before the job runs and cannot
   be conditional
 - Omitting it fails the build at the attestation step
+
+**Why is `issues: write` required?**
+- The `failure_issue` job in `security-scan-source.yml` opens, updates and closes
+  the scan failure issue (`open_failure_issue`) and declares `issues: write`
+- It must be granted even when `open_failure_issue` is off: permissions are
+  evaluated before the job's `if`, so a caller that grants less than the called
+  workflow declares fails at startup
 
 **Why is `security-events: write` required?**
 - Enables SARIF uploads to GitHub Security tab for code scanning alerts
@@ -367,8 +388,8 @@ unknown input names), so the lint gate offers no protection here.
 Booleans: `publish_github_release`, `publish_python_libraries`,
 `npm_audit_omit_dev`, `enable_clippy`,
 `enable_rustfmt`, `cargo_dry_run`, `cyclonedx_ignore_npm_errors`, and
-`enable_sbom_attestation` / `enable_npm_audit_autofix` / `fail_on_warn` in the
-sub-workflows. Numbers: `trivy_exit_code`, `max_duration_minutes`.
+`enable_sbom_attestation` / `enable_npm_audit_autofix` / `fail_on_warn` /
+`open_failure_issue` in the sub-workflows. Numbers: `trivy_exit_code`, `max_duration_minutes`.
 
 When changing an input's type, **update every caller repo first** — unquoted
 values are valid under both `string` and the stricter type, so callers can land

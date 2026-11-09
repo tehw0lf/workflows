@@ -23,6 +23,7 @@ jobs:
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
       security-events: write # Required for security scanning (SARIF uploads)
+      issues: write         # Required by security-scan-source.yml (scan failure issue); see "Why are these permissions always required?"
       id-token: write       # REQUIRED - Always needed (currently for npm Trusted Publishing, planned for future OIDC integrations)
       attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
     with:
@@ -40,6 +41,7 @@ jobs:
 **Important permissions:**
 - **`id-token: write` is REQUIRED for all workflows** - Currently used for npm, Python, and Rust Trusted Publishing (no NPM_TOKEN, UV_TOKEN, or CARGO_REGISTRY_TOKEN needed!), with plans to extend OIDC to other publishing workflows in the future
 - **`security-events: write` is REQUIRED** - Enables SARIF uploads to GitHub Security tab for centralized vulnerability tracking
+- **`issues: write` is REQUIRED** - `security-scan-source.yml` has a job that can open an issue when a scheduled scan fails; the job needs this permission even when the `open_failure_issue` input is off, so a caller that does not grant it fails at startup
 - Due to GitHub Actions limitations, these permissions must be set at the top-level calling workflow, regardless of which publishing workflows you use
 - If using `release-it` for npm, add `.release-it.json` with `{"npm": {"skipChecks": true}}`
 
@@ -393,7 +395,12 @@ Aggregates and reports results from all publishing workflows.
 ```yaml
 with:
   semgrep_rules: "auto"              # auto, p/security-audit, p/owasp-top-ten, p/ci
+  open_failure_issue: true           # default: false
 ```
+
+**Scan failure issue (`open_failure_issue`, default `false`):** on `schedule` and `workflow_dispatch` runs, when the scan job fails, the `failure_issue` job opens one issue in the calling repository. It names each scanner step that failed: the semgrep rules (unsuppressed findings, with counts), or that no valid SARIF was produced; the vulnerable npm or yarn packages with their severity at or above `npm_audit_severity_threshold`; bandit and pip-audit by name, with a pointer to the run log. Scanners that apply to the `tool` but were skipped because an earlier scanner step failed (for example `npm audit` after a failed semgrep check) are listed under "Not run", since their findings are unknown. Lists are capped at 50 entries. There is one issue per `root_dir`, marked by a comment on the first line of its body. While it is open, later failing runs rewrite its body and add a comment only when the set of failing tools or findings changed. A later scheduled or manual run that passes comments with its run link and closes the issue. When `scheduled-audit-fix` opened an `npm audit fix` PR, the issue links it. The job does not run for push or pull request events, and it is not exposed through `build-test-publish.yml`: call `security-scan-source.yml` directly to use it.
+
+**Requires `issues: write`:** the job declares it, so every caller of `security-scan-source.yml` (directly or through `build-test-publish.yml`) has to grant `issues: write` whether or not `open_failure_issue` is set; without it the run fails at startup.
 
 **All tools are 100% free and open source:**
 - ✅ No signup required, no usage limits
@@ -481,6 +488,7 @@ jobs:
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
       security-events: write # REQUIRED - For security scanning SARIF uploads
+      issues: write         # Required (scan failure issue of security-scan-source.yml)
     with:
       tool: npm
       # ... other inputs
@@ -507,6 +515,11 @@ jobs:
 - Required for uploading SARIF reports to GitHub Security tab
 - Enables centralized security vulnerability tracking across repositories
 - Provides detailed security findings for Semgrep, Bandit, Trivy, and Grype scans
+- Cannot be conditionally granted in reusable workflows
+
+**`issues: write`:**
+- Required by the `failure_issue` job of `security-scan-source.yml`, which opens, updates and closes the scan failure issue (`open_failure_issue`)
+- Needed even when `open_failure_issue` is off: permissions are evaluated before the job's `if`, and a caller that grants less than a called job declares fails at startup
 - Cannot be conditionally granted in reusable workflows
 
 #### Required Secrets
@@ -772,6 +785,7 @@ jobs:
       contents: write       # Required for GitHub releases
       packages: write       # Required for Docker/GHCR publishing
       security-events: write # Required for security scanning (SARIF uploads)
+      issues: write         # Required (scan failure issue of security-scan-source.yml)
     with:
       tool: npm
       lint: "run lint"
@@ -790,6 +804,7 @@ permissions:
   contents: read
   packages: write       # Required for Docker publishing to GHCR
   security-events: write # Required for security scanning (SARIF uploads)
+  issues: write         # Required (scan failure issue of security-scan-source.yml)
 with:
   tool: npm
   build_main: "run build"
@@ -807,6 +822,7 @@ permissions:
   attestations: write   # Required by the build job (SBOM provenance attestation)
   contents: read
   security-events: write # Required for security scanning (SARIF uploads)
+  issues: write         # Required (scan failure issue of security-scan-source.yml)
 with:
   tool: uv
   install: "sync"
@@ -837,6 +853,7 @@ jobs:
       contents: write
       packages: write
       security-events: write
+      issues: write         # Required (scan failure issue of security-scan-source.yml)
     with:
       tool: cargo
       artifact_path: target/release/my-crate
@@ -862,6 +879,7 @@ permissions:
   attestations: write   # Required for SBOM provenance attestation (npm/yarn builds)
   contents: read
   security-events: write # Required for security scanning (SARIF uploads)
+  issues: write         # Required (scan failure issue of security-scan-source.yml)
 with:
   tool: bash
   install: "install.sh"
@@ -891,6 +909,7 @@ permissions:
   id-token: write       # REQUIRED - Always needed
   contents: write       # Required for GitHub releases
   security-events: write # Required for security scanning (SARIF uploads)
+  issues: write         # Required (scan failure issue of security-scan-source.yml)
 with:
   tool: bash
   enable_lua: true

@@ -71,6 +71,14 @@ on:
         default: ""
         required: false
         type: string
+      open_failure_issue:
+        description: "open (or update) one issue in the calling repository when
+          a scheduled/manual scan fails, and close it when a later one passes.
+          Callers must grant 'issues: write' whatever the value is: permissions
+          cannot be conditional in a reusable workflow."
+        default: false
+        required: false
+        type: boolean
     outputs:
       semgrep_result:
         description: "semgrep scan result"
@@ -84,6 +92,9 @@ on:
       pip_audit_result:
         description: "pip-audit result"
         value: ${{ jobs.scan_source.outputs.pip_audit_result }}
+      yarn_audit_result:
+        description: "yarn audit result"
+        value: ${{ jobs.scan_source.outputs.yarn_audit_result }}
       npm_audit_fix_branch:
         description: "fix branch created by the npm audit auto-fix"
         value: ${{ jobs.branch-audit-fix.outputs.fix_branch ||
@@ -111,6 +122,7 @@ jobs:
       bandit_result: ${{ steps.bandit.outcome }}
       npm_audit_result: ${{ steps.npm-audit.outcome }}
       pip_audit_result: ${{ steps.pip-audit.outcome }}
+      yarn_audit_result: ${{ steps.yarn-audit.outcome }}
     defaults:
       run:
         working-directory: ${{ inputs.root_dir }}
@@ -257,6 +269,122 @@ jobs:
             ${{ inputs.root_dir }}/semgrep.sarif
           if-no-files-found: ignore
 
+      # Failure report for the optional issue (open_failure_issue). Runs after
+      # the scanners, only on scheduled/manual runs, and lists what each failed
+      # scanner step found. semgrep.sarif is read after the suppression filter
+      # above, so it holds the unsuppressed findings only.
+      - name: summarize scan failures
+        if: >-
+          always() && inputs.open_failure_issue &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          SEMGREP_OUTCOME: ${{ steps.semgrep-check.outcome }}
+          BANDIT_OUTCOME: ${{ steps.bandit.outcome }}
+          PIP_AUDIT_OUTCOME: ${{ steps.pip-audit.outcome }}
+          NPM_AUDIT_OUTCOME: ${{ steps.npm-audit.outcome }}
+          YARN_AUDIT_OUTCOME: ${{ steps.yarn-audit.outcome }}
+          THRESHOLD: ${{ inputs.npm_audit_severity_threshold }}
+          OMIT_DEV: ${{ inputs.npm_audit_omit_dev }}
+          TOOL: ${{ inputs.tool }}
+        run: |
+          out=scan-failure-summary.md
+          : > "$out"
+          cap=50
+          # severity ranks, so that only findings at or above the threshold
+          # are listed (the audit tools print all of them)
+          rank='def r: {"info":0,"low":1,"moderate":2,"high":3,"critical":4}[.] // 0;'
+          case "$THRESHOLD" in
+            low) min=1 ;; moderate) min=2 ;; high) min=3 ;; critical) min=4 ;; *) min=0 ;;
+          esac
+          # stdin: one entry per line; prints a capped Markdown list
+          list() {
+            tr -d '`' | sort -u | awk -v cap="$cap" \
+              'NR<=cap { print "- `" $0 "`" } END { if (NR>cap) print "- and " NR-cap " more" }'
+          }
+
+          if [ "$SEMGREP_OUTCOME" = "failure" ]; then
+            {
+              echo "### semgrep"
+              echo
+              if [ ! -s semgrep.sarif ] || ! jq empty semgrep.sarif 2>/dev/null; then
+                echo "semgrep did not produce a valid SARIF (scan or configuration error). See the run log."
+              else
+                echo "Unsuppressed findings by rule:"
+                echo
+                jq -r '[.runs[]?.results[]? | .ruleId // "unknown rule"] | group_by(.)[] | "\(.[0]) (\(length))"' semgrep.sarif | list
+              fi
+              echo
+            } >> "$out"
+          fi
+
+          if [ "$BANDIT_OUTCOME" = "failure" ]; then
+            printf '### bandit\n\nbandit failed. See the run log.\n\n' >> "$out"
+          fi
+
+          if [ "$PIP_AUDIT_OUTCOME" = "failure" ]; then
+            printf '### pip-audit\n\npip-audit reported vulnerable dependencies or failed. See the run log.\n\n' >> "$out"
+          fi
+
+          if [ "$NPM_AUDIT_OUTCOME" = "failure" ]; then
+            flags=""
+            [ "$OMIT_DEV" = "true" ] && flags="--omit=dev"
+            npm audit --json $flags > npm-audit.json 2>/dev/null || true
+            {
+              echo "### npm audit"
+              echo
+              if jq -e '.vulnerabilities' npm-audit.json > /dev/null 2>&1; then
+                echo "Vulnerable packages at or above \`$THRESHOLD\`:"
+                echo
+                jq -r --argjson min "$min" "$rank"' .vulnerabilities | to_entries[] | select((.value.severity | r) >= $min) | "\(.key) (\(.value.severity))"' npm-audit.json | list
+              else
+                echo "npm audit failed without a readable report. See the run log."
+              fi
+              echo
+            } >> "$out"
+            rm -f npm-audit.json
+          fi
+
+          if [ "$YARN_AUDIT_OUTCOME" = "failure" ]; then
+            yarn audit --json > yarn-audit.json 2>/dev/null || true
+            names=$(jq -R -r --argjson min "$min" "$rank"' fromjson? | select(.type == "auditAdvisory") | select((.data.advisory.severity | r) >= $min) | "\(.data.advisory.module_name) (\(.data.advisory.severity))"' yarn-audit.json)
+            {
+              echo "### yarn audit"
+              echo
+              if [ -n "$names" ]; then
+                echo "Vulnerable packages at or above \`$THRESHOLD\`:"
+                echo
+                printf '%s\n' "$names" | list
+              else
+                echo "yarn audit failed without a readable advisory list. See the run log."
+              fi
+              echo
+            } >> "$out"
+            rm -f yarn-audit.json
+          fi
+
+          # A scanner that applies to this tool but was skipped never ran: a
+          # failed earlier step stops the later ones, so its findings are unknown.
+          not_run=""
+          if [ "$TOOL" = "uv" ]; then
+            [ "$BANDIT_OUTCOME" = "skipped" ] && not_run="$not_run bandit"
+            [ "$PIP_AUDIT_OUTCOME" = "skipped" ] && not_run="$not_run pip-audit"
+          fi
+          [ "$TOOL" = "npm" ] && [ "$NPM_AUDIT_OUTCOME" = "skipped" ] && not_run="$not_run npm-audit"
+          [ "$TOOL" = "yarn" ] && [ "$YARN_AUDIT_OUTCOME" = "skipped" ] && not_run="$not_run yarn-audit"
+          if [ -n "$not_run" ]; then
+            printf '### Not run\n\nThese scanners did not run because an earlier step failed, so their findings are unknown:%s. See the run log.\n\n' "$(printf '%s' "$not_run" | sed 's/ /, /g; s/^,//')" >> "$out"
+          fi
+
+      - name: upload scan failure summary
+        if: >-
+          always() && inputs.open_failure_issue &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-scan-source-failure-summary
+          path: ${{ inputs.root_dir }}/scan-failure-summary.md
+          if-no-files-found: ignore
+
   branch-audit-fix:
     needs: scan_source
     # any PR branch in this repo - Dependabot and regular feature branches
@@ -295,6 +423,93 @@ jobs:
       node_version: "24.22.2"
       omit_dev: ${{ inputs.npm_audit_omit_dev }}
       severity_threshold: ${{ inputs.npm_audit_severity_threshold }}
+
+  # Optional: one issue per root_dir in the calling repository while the
+  # scheduled/manual scan fails, closed by the next passing run. Needs
+  # `issues: write`, which the caller has to grant whether or not
+  # open_failure_issue is set (permissions cannot be conditional).
+  failure_issue:
+    name: open, update or close the scan failure issue
+    needs: [scan_source, scheduled-audit-fix]
+    if: >-
+      always() && inputs.open_failure_issue &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      (needs.scan_source.result == 'failure' || needs.scan_source.result == 'success')
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: download scan failure summary
+        if: needs.scan_source.result == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: security-scan-source-failure-summary
+          path: ${{ runner.temp }}/failure-summary
+        continue-on-error: true
+
+      - name: open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SCAN_RESULT: ${{ needs.scan_source.result }}
+          ROOT_DIR: ${{ inputs.root_dir }}
+          FIX_PR_URL: ${{ needs.scheduled-audit-fix.outputs.fix_pr_url }}
+          SUMMARY_FILE: ${{ runner.temp }}/failure-summary/scan-failure-summary.md
+          BODY_FILE: ${{ runner.temp }}/failure-issue-body.md
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          marker="<!-- security-scan-source:failure root_dir=$ROOT_DIR -->"
+          title="Scheduled source security scan failed"
+          [ "$ROOT_DIR" != "." ] && title="$title ($ROOT_DIR)"
+
+          # open issues of this bot whose first body line is the marker; the
+          # REST list is used because the search index lags behind
+          existing=$(gh api --paginate -X GET "repos/$GH_REPO/issues" \
+            -f state=open -f creator='github-actions[bot]' -f per_page=100 \
+            | jq -s -r --arg m "$marker" \
+              'add // [] | map(select(.pull_request == null and (((.body // "") | split("\n")[0] | rtrimstr("\r")) == $m))) | sort_by(.number) | first | .number // empty')
+
+          if [ "$SCAN_RESULT" = "success" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "The scheduled source security scan passes again: $run_url"
+              gh issue close "$existing" --reason completed
+            fi
+            exit 0
+          fi
+
+          {
+            echo "$marker"
+            echo "## $title"
+            echo
+            echo "<!-- summary -->"
+            if [ -s "$SUMMARY_FILE" ]; then
+              cat "$SUMMARY_FILE"
+            else
+              echo "The scan job failed outside a scanner step (setup, timeout or an infrastructure error). See the run log."
+              echo
+            fi
+            echo "<!-- /summary -->"
+            echo "Latest failing run: $run_url"
+            if [ -n "$FIX_PR_URL" ]; then
+              echo
+              echo "npm audit fix pull request: $FIX_PR_URL"
+            fi
+          } > "$BODY_FILE"
+
+          if [ -z "$existing" ]; then
+            gh issue create --title "$title" --body-file "$BODY_FILE"
+            exit 0
+          fi
+
+          section() { sed -n '/^<!-- summary -->/,/^<!-- \/summary -->/p' | tr -d '\r'; }
+          old=$(gh issue view "$existing" --json body -q .body | section)
+          new=$(section < "$BODY_FILE")
+          gh issue edit "$existing" --title "$title" --body-file "$BODY_FILE"
+          if [ "$old" != "$new" ]; then
+            gh issue comment "$existing" --body "The set of failing tools or findings changed in $run_url. The issue description shows the current set."
+          fi
 
   # Optional CodeQL analysis. Off unless the caller sets `codeql_languages`,
   # so existing callers are unaffected.
