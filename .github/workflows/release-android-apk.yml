@@ -160,6 +160,10 @@ jobs:
             echo "::error::[Release] Could not extract version from package.json (got: '${VERSION}')"
             exit 1
           fi
+          if [[ "${VERSION}" == *[[:cntrl:]]* ]]; then
+            echo "::error::[Release] The version read from the manifest contains a control character (e.g. a line break); refusing to use it"
+            exit 1
+          fi
           echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
           echo "::notice::[Release] Extracted version: v${VERSION}"
 

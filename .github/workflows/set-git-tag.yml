@@ -117,6 +117,10 @@ jobs:
             echo "::notice::[Tag] No version found for tool '${TOOL}' (no manifest version, no VERSION file, no .toc), skipping tag"
             exit 0
           fi
+          if [[ "${VERSION}" == *[[:cntrl:]]* ]]; then
+            echo "::error::[Tag] The version read from the manifest contains a control character (e.g. a line break); refusing to use it"
+            exit 1
+          fi
           echo "release_tag=v${VERSION#v}" >> $GITHUB_OUTPUT
           echo "::notice::[Tag] Extracted version: v${VERSION#v}"
 
