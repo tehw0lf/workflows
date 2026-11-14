@@ -118,6 +118,10 @@ jobs:
           fi
 
           if [[ -n "${VERSION}" && "${VERSION}" != "null" ]]; then
+            if [[ "${VERSION}" == *[[:cntrl:]]* ]]; then
+              echo "::error::[Docker] The version read from the manifest contains a control character (e.g. a line break); refusing to use it"
+              exit 1
+            fi
             echo "DOCKER_VERSION_TAG=v${VERSION#v}" >> $GITHUB_ENV
             echo "::notice::[Docker] Version tag: v${VERSION#v}"
           else
