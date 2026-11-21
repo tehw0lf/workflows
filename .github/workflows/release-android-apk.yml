@@ -164,8 +164,8 @@ jobs:
             echo "::error::[Release] The version read from the manifest contains a control character (e.g. a line break); refusing to use it"
             exit 1
           fi
-          echo "RELEASE_TAG=v${VERSION}" >> $GITHUB_ENV
-          echo "::notice::[Release] Extracted version: v${VERSION}"
+          echo "RELEASE_TAG=v${VERSION#v}" >> $GITHUB_ENV
+          echo "::notice::[Release] Extracted version: v${VERSION#v}"
 
       - name: check if release already exists
         if: ${{ steps.check_build_artifact_exists.outputs.exists == 'true' && steps.check_app_artifact_exists.outputs.exists == 'true' }}
