@@ -346,7 +346,7 @@ jobs:
 ### Workflow Input Patterns
 
 **The `workflow_call.inputs` block of `build-test-publish.yml` is the single source of
-truth** for the 49 available inputs — read it rather than trusting any list, here or in
+truth** for the 51 available inputs — read it rather than trusting any list, here or in
 the README. The README's "Optional Inputs (complete)" table mirrors it and must be
 updated in the same commit whenever an input is added, renamed or removed.
 
@@ -359,7 +359,7 @@ Key parameters:
 - `trivy_exit_code`: Fail build on vulnerabilities (default: `1`)
 - Platform-specific metadata (`docker_meta`, `xpi_path`, etc.)
 
-**Complete input list** (49; mirror of `workflow_call.inputs` — verify against the
+**Complete input list** (51; mirror of `workflow_call.inputs` — verify against the
 YAML before relying on it):
 
 | Group | Inputs |
@@ -367,6 +367,7 @@ YAML before relying on it):
 | Project | `tool`, `root_dir`, `head_ref`, `runner`, `java_version`, `go_version` |
 | Scripts | `install`, `format`, `lint`, `test`, `e2e`, `build_branch`, `build_main`, `post_build_script` |
 | Artifacts | `artifact_path` |
+| CSP check | `csp_index_html`, `csp_header_file` |
 | Docker | `docker_meta`, `docker_namespace`, `registry`, `platforms`, `docker_pre` |
 | npm | `libraries`, `library_path`, `npm_namespace`, `cyclonedx_ignore_npm_errors` |
 | Python | `publish_python_libraries` |
