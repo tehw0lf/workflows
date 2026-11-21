@@ -58,6 +58,16 @@ on:
         default: ""
         required: false
         type: string
+      csp_index_html:
+        description: "path to the built index.html, relative to root_dir; enables the CSP script hash check together with csp_header_file"
+        default: ""
+        required: false
+        type: string
+      csp_header_file:
+        description: "path to the nginx header file with the Content-Security-Policy, relative to root_dir; enables the CSP script hash check together with csp_index_html"
+        default: ""
+        required: false
+        type: string
       runner:
         description: "workflow-runner"
         default: "ubuntu-latest"
@@ -356,6 +366,233 @@ jobs:
       - name: post build script on main
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
         run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
+
+      # Optional CSP check. A hash in the Content-Security-Policy has to match
+      # the exact text of an inline script the build tool emits, so a build tool
+      # update can break it without any change in the repository, and the e2e
+      # suite (dev server, no nginx headers) does not notice. This step hashes the
+      # inline scripts and event handlers of the built index.html and compares
+      # them with the add_header Content-Security-Policy lines of the header file.
+      # 'unsafe-inline' only exempts when the directive has no hash, nonce or
+      # 'strict-dynamic' source: browsers ignore it otherwise.
+      - name: check CSP script hashes
+        if: ${{ inputs.csp_index_html != '' || inputs.csp_header_file != '' }}
+        env:
+          CSP_INDEX_HTML: ${{ inputs.csp_index_html }}
+          CSP_HEADER_FILE: ${{ inputs.csp_header_file }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import html.parser
+          import os
+          import re
+          import sys
+
+          index_path = os.environ.get("CSP_INDEX_HTML", "")
+          header_path = os.environ.get("CSP_HEADER_FILE", "")
+          failures = 0
+
+
+          def esc_data(s):
+              return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+          def esc_prop(s):
+              return esc_data(s).replace(":", "%3A").replace(",", "%2C")
+
+
+          def annotate(level, msg, path=None):
+              global failures
+              if level == "error":
+                  failures += 1
+              prop = " file=" + esc_prop(path) if path else ""
+              print("::" + level + prop + "::" + esc_data(msg))
+
+
+          def fail_now(msg):
+              annotate("error", msg)
+              sys.exit(1)
+
+
+          if not index_path or not header_path:
+              missing = "csp_header_file" if index_path else "csp_index_html"
+              fail_now("csp_index_html and csp_header_file must be set together; " + missing + " is empty")
+          for label, path in (("csp_index_html", index_path), ("csp_header_file", header_path)):
+              if not os.path.isfile(path):
+                  fail_now(label + " does not point to a file: " + path)
+
+          with open(header_path, encoding="utf-8", errors="replace") as fh:
+              header_text = re.sub(r"(?m)^\s*#.*$", "", fh.read())
+          policies = []
+          for m in re.finditer(
+              r"""add_header\s+Content-Security-Policy\s+(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')""",
+              header_text,
+              re.IGNORECASE | re.DOTALL,
+          ):
+              value = m.group(1) if m.group(1) is not None else m.group(2)
+              policies.append(re.sub(
+                  r"\\(.)",
+                  lambda e: {"t": "\t", "r": "\r", "n": "\n", '"': '"', "'": "'", "\\": "\\"}.get(e.group(1), e.group(0)),
+                  value,
+                  flags=re.DOTALL,
+              ))
+          if not policies:
+              fail_now("no add_header Content-Security-Policy found in " + header_path)
+
+          JS_TYPES = {
+              "", "module", "importmap", "text/javascript", "application/javascript",
+              "application/ecmascript", "application/x-ecmascript",
+              "application/x-javascript", "text/ecmascript", "text/javascript1.0",
+              "text/javascript1.1", "text/javascript1.2", "text/javascript1.3",
+              "text/javascript1.4", "text/javascript1.5", "text/jscript",
+              "text/livescript", "text/x-ecmascript", "text/x-javascript",
+          }
+
+
+          class Collector(html.parser.HTMLParser):
+              def __init__(self):
+                  super().__init__(convert_charrefs=False)
+                  self.scripts = []
+                  self.skipped = []
+                  self.handlers = []
+                  self._buf = None
+                  self._inert = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag in ("template", "noscript"):
+                      self._inert.append(tag)
+                  if self._inert:
+                      return
+                  names = {k.lower(): (v or "") for k, v in attrs}
+                  for k, v in attrs:
+                      if k.lower().startswith("on") and v:
+                          self.handlers.append((tag, k.lower(), v))
+                  if tag == "script" and "src" not in names:
+                      stype = names.get("type", "").strip().lower()
+                      self._buf = [] if stype in JS_TYPES else None
+                      if stype not in JS_TYPES:
+                          self.skipped.append(stype)
+
+              def handle_data(self, data):
+                  if self._buf is not None:
+                      self._buf.append(data)
+
+              def handle_endtag(self, tag):
+                  if self._inert:
+                      if tag == self._inert[-1]:
+                          self._inert.pop()
+                      return
+                  if tag == "script" and self._buf is not None:
+                      text = "".join(self._buf)
+                      if text:
+                          self.scripts.append(text)
+                      self._buf = None
+
+
+          collector = Collector()
+          with open(index_path, encoding="utf-8", errors="replace") as fh:
+              collector.feed(fh.read())
+              collector.close()
+          scripts, handlers = collector.scripts, collector.handlers
+          print("inline scripts: %d, inline event handlers: %d, skipped data blocks: %s" % (
+              len(scripts), len(handlers), ", ".join(collector.skipped) or "none"))
+
+
+          def hash_sources(text):
+              data = text.encode("utf-8")
+              return [
+                  "'sha%s-%s'" % (bits, base64.b64encode(getattr(hashlib, "sha" + bits)(data).digest()).decode())
+                  for bits in ("256", "384", "512")
+              ]
+
+
+          def parse_policy(policy):
+              directives = {}
+              for part in policy.split(";"):
+                  tokens = part.split()
+                  if tokens and tokens[0].lower() not in directives:
+                      directives[tokens[0].lower()] = tokens[1:]
+              return directives
+
+
+          HASH_RE = re.compile(r"^'sha(256|384|512)-", re.IGNORECASE)
+
+
+          def normalise(tokens):
+              return [t if HASH_RE.match(t) is None else "'sha" + t[4:] for t in tokens]
+
+
+          def effective(directives, chain):
+              for name in chain:
+                  if name in directives:
+                      return name, normalise(directives[name])
+              return None, None
+
+
+          def is_allowed(tokens, text, handler):
+              lowered = [t.lower() for t in tokens]
+              has_hash = any(HASH_RE.match(t) for t in tokens)
+              if "'unsafe-inline'" in lowered and not (
+                  has_hash or "'strict-dynamic'" in lowered or any(t.startswith("'nonce-") for t in lowered)
+              ):
+                  return True
+              if handler and "'unsafe-hashes'" not in lowered:
+                  return False
+              return any(src in tokens for src in hash_sources(text))
+
+
+          def excerpt(text):
+              return " ".join(text.split())[:80]
+
+
+          all_hashes = set()
+          for item in scripts + [h[2] for h in handlers]:
+              all_hashes.update(hash_sources(item))
+
+          rows = []
+          for number, policy in enumerate(policies, 1):
+              directives = parse_policy(policy)
+              label = "policy %d of %d" % (number, len(policies))
+              used = {}
+              before = failures
+              s_name, s_tokens = effective(directives, ("script-src-elem", "script-src", "default-src"))
+              a_name, a_tokens = effective(directives, ("script-src-attr", "script-src", "default-src"))
+              if s_name is None:
+                  annotate("notice", label + ": no script-src-elem, script-src or default-src; inline scripts are not restricted", header_path)
+              else:
+                  used[s_name] = s_tokens
+                  for text in scripts:
+                      if not is_allowed(s_tokens, text, False):
+                          annotate("error", "%s: inline script not allowed by %s. Add %s to the directive. Script starts with: %s" % (
+                              label, s_name, hash_sources(text)[0], excerpt(text)), index_path)
+              if a_name is None:
+                  if handlers:
+                      annotate("notice", label + ": no script-src-attr, script-src or default-src; inline event handlers are not restricted", header_path)
+              elif handlers:
+                  used[a_name] = a_tokens
+                  for tag, attr, value in handlers:
+                      if not is_allowed(a_tokens, value, True):
+                          annotate("error", "%s: inline handler %s on <%s> not allowed by %s. It needs 'unsafe-hashes' and %s in the directive. Value starts with: %s" % (
+                              label, attr, tag, a_name, hash_sources(value)[0], excerpt(value)), index_path)
+              for name, tokens in used.items():
+                  for token in tokens:
+                      if HASH_RE.match(token) and token not in all_hashes:
+                          annotate("warning", "%s: %s contains %s, which matches no inline script or handler of the build" % (
+                              label, name, token), header_path)
+              rows.append((label, "fail" if failures > before else "pass"))
+
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write("### CSP script hash check\n\n| Item | Count |\n|---|---|\n")
+                  fh.write("| inline scripts | %d |\n| inline event handlers | %d |\n\n" % (len(scripts), len(handlers)))
+                  fh.write("| Policy | Result |\n|---|---|\n")
+                  for label, result in rows:
+                      fh.write("| %s | %s |\n" % (label, result))
+
+          sys.exit(1 if failures else 0)
+          PY
 
       - name: upload SBOM artifact
         if: ${{ inputs.enable_sbom_attestation && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}

@@ -63,7 +63,7 @@ The main orchestrator workflow that handles the complete CI/CD pipeline.
 
 **Optional Inputs (complete):**
 
-All 49 inputs are optional. Grouped by purpose; defaults are the workflow's own.
+All 51 inputs are optional. Grouped by purpose; defaults are the workflow's own.
 
 _Project & build_
 
@@ -82,6 +82,8 @@ _Project & build_
 | `build_main` | `""` | Build script for main-branch runs |
 | `post_build_script` | `""` | Script to run after the build step |
 | `artifact_path` | `""` | Path to build outputs to upload as an artifact |
+| `csp_index_html` | `""` | Path to the built `index.html`, relative to `root_dir`; enables the CSP script hash check together with `csp_header_file` |
+| `csp_header_file` | `""` | Path to the nginx header file with the `Content-Security-Policy`, relative to `root_dir`; enables the CSP script hash check together with `csp_index_html` |
 
 _Docker publishing_
 
@@ -184,6 +186,17 @@ Core workflow for testing and building applications.
 - ✅ Playwright E2E testing (supports .ts, .js, and .mjs config variants)
 - ✅ Descriptive artifact upload suffixes for clarity
 - ✅ Configurable timeouts (45 minutes)
+- ✅ Optional CSP script hash check (`csp_index_html` + `csp_header_file`)
+
+**CSP script hash check.** A hash in a `Content-Security-Policy` has to match the exact text of an inline script the build tool emits, and e2e runs against a dev server without the nginx headers, so a build tool update can break the deployed app unnoticed. When both inputs are set, a step after the build hashes every inline script and inline event handler (`on…=` attribute) of the built `index.html` and fails if an `add_header Content-Security-Policy` line in the header file does not allow it. The error names the `'sha256-…'` source to add.
+
+- Setting only one input, a missing file, or a header file without an `add_header Content-Security-Policy` line fails the step. With neither set the step is skipped.
+- Scripts are checked against `script-src-elem`, else `script-src`, else `default-src`; event handlers against `script-src-attr`, else the same chain, and they also need `'unsafe-hashes'`. If none of these directives exists, the policy does not restrict inline scripts and the step only prints a notice.
+- `'unsafe-inline'` only counts when the directive has no hash, nonce or `'strict-dynamic'` source, because browsers ignore it otherwise.
+- Data blocks (`<script type="application/json">` and the like), `<script type="speculationrules">` (it needs the `'inline-speculation-rules'` source, which is not checked), scripts with `src`, and anything inside `<template>` or `<noscript>` are not checked. With several `add_header Content-Security-Policy` lines, each is checked. In the quoted header value, `\"`, `\'` and `\\` are unescaped and `\t`, `\r`, `\n` become whitespace; any other backslash is kept as it is (the nginx rules for quoted strings).
+- A hash in the used directives that matches nothing in the build gives a warning annotation and does not fail.
+- Not covered: `style-src`, scripts injected at runtime, and a CSP set through `<meta>`.
+- The check fails when `index.html` is missing, also on pull-request runs. If a caller's branch build may not build the app (for example `nx affected`), set the inputs on push runs only: `csp_index_html: ${{ github.event_name == 'push' && 'dist/app/browser/index.html' || '' }}` and the same pattern for `csp_header_file`.
 
 ### 3. Docker Publishing (`publish-docker-image.yml`)
 
