@@ -293,6 +293,14 @@ This dramatically reduces validation overhead while maintaining safety guarantee
 - Optimized timeouts prevent runaway builds (5-60 minutes depending on complexity)
 - Minimal permissions principle applied to all jobs
 
+#### Expressions in `run:` scripts
+- No `${{ … }}` inside a `run:` script. GitHub expands the expression before the shell runs, so the value becomes script text. Every value (inputs, step outputs, `github.*`, `matrix.*`, secrets) reaches the script through the step's `env:`; `env.X` is read as `$X`. A value is used as a double-quoted variable, unless it is a list of arguments that has to be split on purpose (`$CLIPPY_ARGS` in the clippy step).
+- Naming: the input name in upper case (`app_root` becomes `APP_ROOT`). Command inputs use `TOOL` for `inputs.tool` and the input name in upper case with the suffix `_SCRIPT` (`INSTALL_SCRIPT`, `LINT_SCRIPT`, `BUILD_MAIN_SCRIPT`), except for names that already end in `script` (`post_build_script` becomes `POST_BUILD_SCRIPT`), because these variables are exported into the caller's build and bare names such as `TEST` are too generic.
+- Command inputs are code by design and run through `eval`. The ones appended to `tool` (`install`, `format`, `lint`, `test`, `e2e`, `build_branch`, `build_main`, `post_build_script`) run as `eval "$TOOL $INSTALL_SCRIPT"`, `eval "$TOOL $LINT_SCRIPT"` and so on; `docker_pre` and `release_pre` are whole commands without the `tool` prefix and run as `eval "$DOCKER_PRE_SCRIPT"` and `eval "$RELEASE_PRE_SCRIPT"` once their workflows are migrated. A caller must never fill them from untrusted context (a pull request title, a branch name, issue text).
+- Steps that use `eval` need a runner whose default shell is bash (no Windows runners).
+- The rule covers `run:` only, not `if:`, `with:`, `name:` or `working-directory:`.
+- Status: `test-and-build.yml` follows the rule. The other workflows are migrated by their own issues, and a check in `lint.yml` follows with the last group.
+
 ### Required Permissions for Calling Workflows
 **IMPORTANT:** All calling workflows **MUST** include these permissions:
 
@@ -380,7 +388,8 @@ YAML before relying on it):
 | Security | `semgrep_rules`, `npm_audit_omit_dev`, `npm_audit_severity_threshold`, `trivy_severity`, `trivy_exit_code` |
 
 Script inputs are appended to `tool`, so the value is the subcommand only
-(`build_main: "run build"`, not `"npm run build"`). Defaults are documented in the
+(`build_main: "run build"`, not `"npm run build"`). The joined text runs through
+`eval` (see "Expressions in `run:` scripts"). Defaults are documented in the
 README's input table.
 
 **There is no `event_name` input.** Conditional execution reads `github.event_name`
