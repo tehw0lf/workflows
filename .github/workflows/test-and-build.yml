@@ -426,11 +426,12 @@ jobs:
               header_text = re.sub(r"(?m)^\s*#.*$", "", fh.read())
           policies = []
           for m in re.finditer(
-              r"""add_header\s+Content-Security-Policy\s+(?:"([^"]*)"|'([^']*)')""",
+              r"""add_header\s+Content-Security-Policy\s+(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')""",
               header_text,
-              re.IGNORECASE,
+              re.IGNORECASE | re.DOTALL,
           ):
-              policies.append(m.group(1) if m.group(1) is not None else m.group(2))
+              value = m.group(1) if m.group(1) is not None else m.group(2)
+              policies.append(re.sub(r"\\(.)", r"\1", value, flags=re.DOTALL))
           if not policies:
               fail_now("no add_header Content-Security-Policy found in " + header_path)
 
@@ -451,8 +452,13 @@ jobs:
                   self.skipped = []
                   self.handlers = []
                   self._buf = None
+                  self._inert = []
 
               def handle_starttag(self, tag, attrs):
+                  if tag in ("template", "noscript"):
+                      self._inert.append(tag)
+                  if self._inert:
+                      return
                   names = {k.lower(): (v or "") for k, v in attrs}
                   for k, v in attrs:
                       if k.lower().startswith("on") and v:
@@ -468,6 +474,10 @@ jobs:
                       self._buf.append(data)
 
               def handle_endtag(self, tag):
+                  if self._inert:
+                      if tag == self._inert[-1]:
+                          self._inert.pop()
+                      return
                   if tag == "script" and self._buf is not None:
                       text = "".join(self._buf)
                       if text:
