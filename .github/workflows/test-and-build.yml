@@ -431,7 +431,12 @@ jobs:
               re.IGNORECASE | re.DOTALL,
           ):
               value = m.group(1) if m.group(1) is not None else m.group(2)
-              policies.append(re.sub(r"\\(.)", r"\1", value, flags=re.DOTALL))
+              policies.append(re.sub(
+                  r"\\(.)",
+                  lambda e: {"t": "\t", "r": "\r", "n": "\n", '"': '"', "'": "'", "\\": "\\"}.get(e.group(1), e.group(0)),
+                  value,
+                  flags=re.DOTALL,
+              ))
           if not policies:
               fail_now("no add_header Content-Security-Policy found in " + header_path)
 
