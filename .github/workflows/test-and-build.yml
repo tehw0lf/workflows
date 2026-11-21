@@ -283,9 +283,16 @@ jobs:
         if: ${{ inputs.tool == 'yarn' }}
         run: yarn install --frozen-lockfile
 
+      # The script inputs (install, format, lint, test, e2e, build_branch,
+      # build_main, post_build_script) are commands by design. They reach the step
+      # through env: and run with eval, never as ${{ }} text inside run:. See
+      # "Expressions in run: scripts" in CLAUDE.md.
       - name: install with ${{ inputs.tool }}
         if: ${{ inputs.tool != 'none' && inputs.tool != 'npm' && inputs.tool != 'yarn' && inputs.install != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.install }}
+        run: eval "$TOOL $INSTALL_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          INSTALL_SCRIPT: ${{ inputs.install }}
 
       - name: generate SBOM
         if: ${{ inputs.enable_sbom_attestation && (inputs.tool == 'npm' || inputs.tool == 'yarn') }}
@@ -296,7 +303,7 @@ jobs:
           mkdir -p sbom
 
           # Generate SBOM using CycloneDX tool
-          if [ "${{ inputs.cyclonedx_ignore_npm_errors }}" = "true" ]; then
+          if [ "$CYCLONEDX_IGNORE_NPM_ERRORS" = "true" ]; then
             echo "::notice::[SBOM] Using --ignore-npm-errors flag"
             npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file sbom/sbom.cyclonedx.json --spec-version 1.7 --output-format JSON
           else
@@ -306,18 +313,28 @@ jobs:
           echo "::notice::[SBOM] SBOM generated successfully"
         env:
           TOOL: ${{ inputs.tool }}
+          CYCLONEDX_IGNORE_NPM_ERRORS: ${{ inputs.cyclonedx_ignore_npm_errors }}
 
       - name: format
         if: ${{ inputs.tool != 'none' && inputs.format != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.format }}
+        run: eval "$TOOL $FORMAT_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          FORMAT_SCRIPT: ${{ inputs.format }}
 
       - name: lint
         if: ${{ inputs.tool != 'none' && inputs.lint != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.lint }}
+        run: eval "$TOOL $LINT_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          LINT_SCRIPT: ${{ inputs.lint }}
 
       - name: test
         if: ${{ inputs.tool != 'none' && inputs.test != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.test }}
+        run: eval "$TOOL $TEST_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          TEST_SCRIPT: ${{ inputs.test }}
 
       - name: Cache Playwright browsers
         if: ${{ (inputs.tool == 'npm' || inputs.tool == 'yarn') && inputs.e2e != '' && (hashFiles('**/**/playwright.config.ts') != '' || hashFiles('**/**/playwright.config.js') != '' || hashFiles('**/**/playwright.config.mjs') != '')}}
@@ -337,7 +354,10 @@ jobs:
 
       - name: e2e test
         if: ${{ inputs.tool != 'none' && inputs.e2e != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.e2e }}
+        run: eval "$TOOL $E2E_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          E2E_SCRIPT: ${{ inputs.e2e }}
 
       - name: run rustfmt
         if: ${{ inputs.tool == 'cargo' && inputs.enable_rustfmt == true }}
@@ -357,15 +377,24 @@ jobs:
 
       - name: build on branch
         if: ${{ github.event_name != 'push' && inputs.tool != 'none' && inputs.build_branch != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.build_branch }}
+        run: eval "$TOOL $BUILD_BRANCH_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          BUILD_BRANCH_SCRIPT: ${{ inputs.build_branch }}
 
       - name: build on main
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.build_main != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.build_main }}
+        run: eval "$TOOL $BUILD_MAIN_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          BUILD_MAIN_SCRIPT: ${{ inputs.build_main }}
 
       - name: post build script on main
         if: ${{ github.event_name == 'push' && inputs.tool != 'none' && inputs.post_build_script != '' }}
-        run: ${{ inputs.tool }} ${{ inputs.post_build_script }}
+        run: eval "$TOOL $POST_BUILD_SCRIPT"
+        env:
+          TOOL: ${{ inputs.tool }}
+          POST_BUILD_SCRIPT: ${{ inputs.post_build_script }}
 
       # Optional CSP check. A hash in the Content-Security-Policy has to match
       # the exact text of an inline script the build tool emits, so a build tool
