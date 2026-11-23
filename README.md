@@ -72,7 +72,7 @@ _Project & build_
 | `tool` | `none` | Build tool: `npm`, `yarn`, `uv`, `cargo`, `go`, `./gradlew`, `mvn`, `bash` |
 | `root_dir` | `.` | Path to project root (set this for monorepos) |
 | `head_ref` | `""` | Branch that triggered the run — pass `${{ github.head_ref }}` |
-| `runner` | `ubuntu-latest` | Runner label for all jobs |
+| `runner` | `ubuntu-latest` | Runner label for all jobs. Its default shell must be bash, because the command inputs (`install`, `format`, `lint`, `test`, `e2e`, `build_branch`, `build_main`, `post_build_script`) run through `eval`; Windows runners are not supported |
 | `install` | `""` | Install script |
 | `format` | `""` | Format script |
 | `lint` | `""` | Lint script |
