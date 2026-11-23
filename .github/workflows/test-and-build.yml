@@ -256,9 +256,13 @@ jobs:
           key: lua-${{ runner.os }}-${{ runner.arch }}-${{ inputs.lua_version }}
 
       # gh-actions-lua builds with cl/link on Windows and does not initialise the
-      # MSVC environment itself, so this has to run first when `runner` selects a
-      # Windows image. The action is a no-op on other platforms, so it is gated
-      # only on enable_lua rather than on the runner name.
+      # MSVC environment itself, so it would need this step on a Windows image.
+      # The action configures nothing on the Linux and macOS images, but it runs
+      # the vendor's subscription check first, which can fail for private
+      # repositories. The step is gated only on enable_lua rather than on the
+      # runner name. Windows runners are not supported by this workflow: the
+      # command steps need bash (see "Expressions in `run:` scripts" in
+      # CLAUDE.md).
       - name: configure msvc for lua build
         if: ${{ inputs.enable_lua }}
         uses: step-security/msvc-dev-cmd@22c98154b708dbd743e6f27a933cf6ceba3305c4 # v1
